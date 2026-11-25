@@ -195,6 +195,45 @@ dotnet publish -c Release -r win-x64 --self-contained false `
 
 ---
 
+## 引用与致谢
+
+### 本项目代码
+
+本仓库除下列第三方接口与素材外，其余代码（`app.js`、`extra.js`、`background.js`、`dock.js`、`index.html` 及 `tools\PclBridge`）均为原创，采用 [MIT](LICENSE) 许可。
+
+### 使用的第三方服务
+
+| 服务 | 用途 | 调用位置 | 说明 |
+|---|---|---|---|
+| [Open-Meteo](https://open-meteo.com/) | 天气与城市地理编码 | `extra.js` | 免费、无需 API Key；数据按 CC BY 4.0 提供 |
+| [今日诗词](https://www.jinrishici.com/) | 搜索聚焦时的每日一句 | `app.js` | 免费公开接口，请求 `v1.jinrishici.com/all.json` |
+| Bing 搜索建议 | 搜索联想 | `app.js` | `api.bing.com/osjson.aspx` |
+| 百度搜索建议 | 搜索联想 | `app.js` | `suggestion.baidu.com/su` |
+| [favicon.cccyun.cc](https://favicon.cccyun.cc/) | 快捷方式图标抓取 | `app.js` | 第三方图标代理；图标版权归各站点所有 |
+
+> 以上服务均有各自的条款与配额限制，本项目仅做客户端调用，不对其可用性与内容负责。若你 Fork 后用于商业场景，请自行确认各服务的使用条款。
+
+### 参考与致谢
+
+| 项目 / 资源 | 关系 | 说明 |
+|---|---|---|
+| [SPlayer](https://github.com/imsyy/SPlayer) | 仅作为**测试用播放器**，无代码依赖 | 音乐组件通过 Windows 系统媒体会话（SMTC）读取信息，任何支持 SMTC 的播放器都可用 |
+| [.NET 8](https://dotnet.microsoft.com/) / WinRT 投影 | 宿主运行时 | `PclBridge` 使用 `Windows.Media.Control` 读取媒体会话 |
+| Windows 系统字体 | 界面字体 | 仅使用系统自带字体（微软雅黑 / Segoe UI 等），未打包字体文件 |
+
+### 关于截图中的素材
+
+- README 截图中的**壁纸、动漫插画、音乐封面**均为使用者本地素材，**不包含在本仓库中**，版权归原作者所有，仅作界面效果展示。
+- 截图中的浏览器图标、站点 Logo 归各自公司所有。
+- 仓库自带的 `icon16/32/48/128.png` 为本项目图标。
+
+### 未使用但被提到的项目
+
+- **PCL2 / PCL 启动器**：`PclBridge` 的命名与「多线程分段下载」思路借鉴自 PCL 的下载体验，但本项目与其无代码关联。
+- **aria2**：设置中仍保留 aria2 JSON-RPC（默认 `127.0.0.1:6800`）作为**可选下载后端**，默认使用内置的 `PclBridge`。若选择 aria2，需自行安装并开启 RPC。
+
+---
+
 ## 已知限制
 
 | 项 | 说明 |
