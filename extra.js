@@ -116,6 +116,8 @@
       var el = nodes[k]();
       if (!el) return;
       var p = S.layout && S.layout[k];
+      // 便签：没有手动摆放时，默认放在右侧垂直居中（与左侧唱片对称）
+      if (!p && k === "notes" && !S.freeLayout) p = { x: 90, y: 50 };
       if ((S.freeLayout || k === "notes") && p) {
         el.style.position = "absolute";
         el.style.left = p.x + "%";
@@ -1913,14 +1915,29 @@
   });
 
   /* --- 拖动调整位置 --- */
-  if (S.npPos && S.npPos.l === -42 && S.npPos.b === 104) S.npPos = { l: -60, b: 104 };   // 旧默认值迁移
-  var pos = S.npPos && typeof S.npPos.l === "number" ? S.npPos : { l: -60, b: 104 };
-  wrap.style.setProperty("--np-l", pos.l + "px");
-  wrap.style.setProperty("--np-b", pos.b + "px");
+  // 旧默认值迁移：左下 → 左侧垂直居中
+  if (S.npPos && S.npPos.l === -42 && S.npPos.b === 104) S.npPos = { l: -60, centerY: true };
+  if (S.npPos && S.npPos.l === -60 && S.npPos.b === 104) S.npPos = { l: -60, centerY: true };
+  var pos = S.npPos && typeof S.npPos.l === "number" ? S.npPos : { l: -60, centerY: true };
+  function applyNpPos() {
+    wrap.style.setProperty("--np-l", pos.l + "px");
+    if (pos.centerY) {
+      wrap.style.setProperty("--np-b", "calc(50vh - " + (SIZE / 2) + "px)");
+    } else {
+      wrap.style.setProperty("--np-b", pos.b + "px");
+    }
+  }
+  applyNpPos();
 
   var drag = null;
   disc.addEventListener("pointerdown", function (ev) {
     if (ev.button !== 0) return;
+    if (pos.centerY) {
+      var wr = wrap.getBoundingClientRect();
+      pos.b = Math.round(window.innerHeight - wr.bottom);
+      pos.centerY = false;
+      applyNpPos();
+    }
     drag = { x: ev.clientX, y: ev.clientY, l: pos.l, b: pos.b, moved: 0 };
     disc.classList.add("dragging");
     try { disc.setPointerCapture(ev.pointerId); } catch (e) {}
@@ -1936,8 +1953,8 @@
     var maxB = window.innerHeight - 120;
     pos.l = Math.max(-70, Math.min(maxL, nl));
     pos.b = Math.max(40, Math.min(maxB, nb));
-    wrap.style.setProperty("--np-l", pos.l + "px");
-    wrap.style.setProperty("--np-b", pos.b + "px");
+    pos.centerY = false;
+    applyNpPos();
   });
   function endDrag(ev) {
     if (!drag) return;
@@ -1952,13 +1969,12 @@
       else if (pos.l + SZ > W - T) { pos.l = W - SZ + half; snapped = true; }  // 贴右
       if (pos.b < T) { pos.b = 40; snapped = true; }                           // 贴底
       else if (pos.b + SZ > H - T) { pos.b = H - SZ; snapped = true; }         // 贴顶
-      wrap.style.setProperty("--np-l", pos.l + "px");
-      wrap.style.setProperty("--np-b", pos.b + "px");
+      applyNpPos();
       if (snapped) {
         wrap.classList.add("snap");
         setTimeout(function () { wrap.classList.remove("snap"); }, 240);
       }
-      S.npPos = { l: Math.round(pos.l), b: Math.round(pos.b) };
+      S.npPos = { l: Math.round(pos.l), b: Math.round(pos.b), centerY: false };
       try { SP.save(); } catch (e) {}
     } else {
       applyBig(!big);
