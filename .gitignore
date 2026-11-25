@@ -1,0 +1,29 @@
+# 构建产物
+tools/PclBridge/bin/
+tools/PclBridge/obj/
+tools/PclBridge/out/
+tools/PclBridge/pub/
+pcl/PclBridge.exe
+
+# 本地安装生成（含路径/扩展 ID）
+pcl/com.pclbridge.bridge.json
+pcl/bridge.json
+pcl/threads.txt
+pcl/watch.vbs
+
+# 个人素材
+bg.mp4
+bg.webm
+bg.jpg
+bg.jpeg
+bg.png
+bg.webp
+
+# 打包与临时
+*.zip
+*.log
+*.bak
+_*
+.DS_Store
+Thumbs.db
+node_modules/

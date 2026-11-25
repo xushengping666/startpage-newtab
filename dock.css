@@ -1,0 +1,21 @@
+:host{all:initial}
+.hot{position:fixed;left:0;right:0;bottom:0;height:44px;pointer-events:auto}
+.wrap{position:fixed;left:0;right:0;bottom:18px;display:flex;justify-content:center;transform:translateY(140%);opacity:0;transition:transform .28s cubic-bezier(.2,.9,.3,1),opacity .22s ease;pointer-events:none}
+.wrap.on{transform:translateY(0);opacity:1;pointer-events:auto}
+.dock{display:flex;flex:0 0 auto;align-items:center;gap:10px;padding:10px 12px;border-radius:22px;
+  background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.28);
+  backdrop-filter:blur(18px) saturate(150%);-webkit-backdrop-filter:blur(18px) saturate(150%);
+  box-shadow:0 16px 44px rgba(0,0,0,.28);font-family:"Microsoft YaHei UI",system-ui,sans-serif}
+.dock.light{background:rgba(255,255,255,.72);border-color:rgba(0,0,0,.08);box-shadow:0 14px 36px rgba(0,0,0,.16)}
+.it{width:44px;height:44px;border-radius:13px;background:#fff;display:grid;place-items:center;overflow:hidden;
+  cursor:pointer;box-shadow:0 6px 16px rgba(0,0,0,.22);transition:transform .16s ease;text-decoration:none}
+.it:hover{transform:translateY(-4px) scale(1.06)}
+.it img{width:26px;height:26px;object-fit:contain;display:block}
+.it span{font-size:16px;font-weight:600;color:#262b36}
+.tip{font-size:11px;color:rgba(255,255,255,.75);margin-left:4px;letter-spacing:.5px}
+.dock.light .tip{color:rgba(20,24,32,.55)}
+.handle{position:fixed;left:50%;bottom:5px;width:44px;height:5px;border-radius:3px;transform:translateX(-50%);
+  background:rgba(255,255,255,.45);box-shadow:0 1px 6px rgba(0,0,0,.25);pointer-events:auto;cursor:pointer;
+  transition:background .18s,opacity .18s;opacity:.55}
+.handle:hover{background:rgba(255,255,255,.85);opacity:1}
+

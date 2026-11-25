@@ -1,0 +1,77 @@
+{
+  "manifest_version": 3,
+  "name": "新标签页",
+  "version": "2.4.17",
+  "description": "本地运行的极简新标签页：视频/图片壁纸、搜索联想、Dock 图标放大与排序、深浅主题与自定义配色。",
+  "chrome_url_overrides": {
+    "newtab": "index.html"
+  },
+  "permissions": [
+    "storage",
+    "unlimitedStorage",
+    "bookmarks",
+    "downloads",
+    "nativeMessaging",
+    "notifications"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "icons": {
+    "16": "icon16.png",
+    "32": "icon32.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
+  "action": {
+    "default_icon": {
+      "16": "icon16.png",
+      "32": "icon32.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    },
+    "default_title": "新标签页"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "dock.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "dock.css"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    },
+    {
+      "resources": [
+        "dock.css",
+        "pcl/PclBridge.exe"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ],
+  "commands": {
+    "toggle-dock": {
+      "suggested_key": {
+        "default": "Alt+Shift+D"
+      },
+      "description": "显示 / 隐藏全局 Dock"
+    }
+  }
+}
