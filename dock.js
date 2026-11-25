@@ -90,17 +90,40 @@
   }
   function toggle() { shown ? hide(0) : show(); }
 
-  hot.addEventListener("mouseenter", show);
+  hot.addEventListener("mouseenter", function () { show(); });
 
-  // 兼容：任何页面只要鼠标进到底部 8px 就唤出（不依赖 hover 目标）
-  var lastMove = 0;
+  // 底部停留 280ms 才唤出，避免鼠标扫过/点页脚时误弹
+  var dwellTimer = null, hideTimer2 = null, overDock = false;
   document.addEventListener("mousemove", function (e) {
-    var now = Date.now();
-    if (now - lastMove < 60) return;
-    lastMove = now;
-    if (e.clientY >= window.innerHeight - 10) show();
-    else if (shown && e.clientY < window.innerHeight - 90) hide(500);
+    var nearBottom = e.clientY >= window.innerHeight - 8;
+    if (nearBottom) {
+      if (!shown && !dwellTimer) {
+        dwellTimer = setTimeout(function () { dwellTimer = null; show(); }, 280);
+      }
+    } else {
+      if (dwellTimer) { clearTimeout(dwellTimer); dwellTimer = null; }
+      if (shown && !overDock && e.clientY < window.innerHeight - 120) hide(300);
+    }
   }, true);
+
+  // 页面滚动 / 点击 → 立即收起（不挡页脚链接）
+  function fromDock(e) {
+    var p = e.composedPath ? e.composedPath() : [];
+    return p.indexOf(dock) >= 0 || p.indexOf(handle) >= 0 || p.indexOf(wrap) >= 0;
+  }
+  document.addEventListener("wheel", function (e) { if (shown && !fromDock(e)) hide(120); }, { capture: true, passive: true });
+  document.addEventListener("click", function (e) { if (shown && !fromDock(e)) hide(100); }, true);
+
+  // 显示 2.5s 后自动收起（鼠标停在 Dock 上时不算）
+  var autoTimer = null;
+  var _show = show;
+  show = function () {
+    _show();
+    clearTimeout(autoTimer);
+    autoTimer = setTimeout(function () { if (!overDock) hide(0); }, 2500);
+  };
+  dock.addEventListener("mouseenter", function () { overDock = true; clearTimeout(autoTimer); });
+  dock.addEventListener("mouseleave", function () { overDock = false; autoTimer = setTimeout(function () { hide(300); }, 800); });
 
   // 底部常驻一个小把手，点一下也能开
   var handle = document.createElement("div");

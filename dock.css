@@ -1,5 +1,5 @@
 :host{all:initial}
-.hot{position:fixed;left:0;right:0;bottom:0;height:44px;pointer-events:auto}
+.hot{position:fixed;left:0;right:0;bottom:0;height:10px;pointer-events:auto}
 .wrap{position:fixed;left:0;right:0;bottom:18px;display:flex;justify-content:center;transform:translateY(140%);opacity:0;transition:transform .28s cubic-bezier(.2,.9,.3,1),opacity .22s ease;pointer-events:none}
 .wrap.on{transform:translateY(0);opacity:1;pointer-events:auto}
 .dock{display:flex;flex:0 0 auto;align-items:center;gap:10px;padding:10px 12px;border-radius:22px;
