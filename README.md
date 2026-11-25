@@ -103,6 +103,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\uninstall-host.ps1
 
 ### 壁纸
 
+> 本仓库**不附带任何壁纸或视频素材**（`bg.mp4`、`bg.jpg` 等已在 `.gitignore` 中忽略）。首次打开是主题渐变，需要你自行配置：
+>
+> 设置 → 背景与壁纸 → 选择图片 / 选择视频，或把文件命名为 `bg.mp4` 放进扩展目录。
+
 - 设置 → **背景与壁纸** → 模式选「图片」→ 选择图片
 - 或直接把图片/视频 **拖到页面上**
 - 或把文件命名为 `bg.mp4` / `bg.jpg` 放进扩展目录
