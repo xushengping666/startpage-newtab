@@ -1310,7 +1310,7 @@
     row("收起 Dock", "Esc", "或滚动页面、点击别处");
 
     var tip = document.createElement("div"); tip.className = "tip";
-    tip.textContent = "浏览器快捷键由 Edge 统一管理，扩展不能直接改；点「修改」会打开 edge://extensions/shortcuts。页面内快捷键目前固定，可在「交互」里整体开关。新标签页打开后会自动聚焦页面，空格/斜杠直接可用；输入框和便签内不会触发。";
+    tip.textContent = "浏览器快捷键由 Edge 统一管理，扩展不能直接改；点「修改」会打开 edge://extensions/shortcuts。页面内快捷键目前固定，可在「交互」里整体开关。新标签页打开后会自动聚焦搜索框，不用先点鼠标就能直接输入或按空格；输入框/便签内不会重复触发。";
     box.appendChild(tip);
 
     try {
