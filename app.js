@@ -1039,7 +1039,14 @@
   }
   function closeClipPanel() {
     var p = document.getElementById("clipPanel");
-    if (p) p.classList.remove("on");
+    if (!p || !p.classList.contains("on") || p.classList.contains("closing")) return;
+    var blur = document.getElementById("clipBlur");
+    if (blur) blur.classList.remove("on");
+    p.classList.remove("pop");
+    p.classList.add("closing");
+    setTimeout(function () {
+      p.classList.remove("on", "closing");
+    }, 280);
   }
   function insertClipText(t) {
     var q = document.getElementById("q");
@@ -1088,7 +1095,9 @@
     // 以图标中心为起点，向页面正中间弹出
     p.style.setProperty("--dx", Math.round(r.left + r.width / 2 - window.innerWidth / 2) + "px");
     p.style.setProperty("--dy", Math.round(r.top + r.height / 2 - (window.innerHeight / 2 - 44)) + "px");
-    p.classList.remove("pop");
+    var blur = document.getElementById("clipBlur");
+    if (blur) blur.classList.add("on");
+    p.classList.remove("pop", "closing");
     void p.offsetWidth;
     p.classList.add("on", "pop");
     setTimeout(function () { p.classList.remove("pop"); }, 420);
@@ -1545,6 +1554,8 @@
       ev.stopPropagation();
       try { chrome.runtime.sendMessage({ type: "sp-clip-clear" }, function () { renderClipPanel(); }); } catch (e) {}
     };
+    var clipBlurEl = document.getElementById("clipBlur");
+    if (clipBlurEl) clipBlurEl.onclick = function () { closeClipPanel(); };
     document.addEventListener("pointerdown", function (ev) {
       if (!panel.classList.contains("on")) return;
       var path = ev.composedPath ? ev.composedPath() : [];
