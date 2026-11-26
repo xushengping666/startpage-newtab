@@ -18,6 +18,27 @@
     taobao: { n: "淘宝", u: "https://s.taobao.com/search?q=" },
     github: { n: "GitHub", u: "https://github.com/search?q=" }
   };
+  var PREFIX_ENG = { g: "google", gg: "google", b: "bing", bd: "baidu", z: "zhihu", tb: "taobao", gh: "github" };
+  var sugLabel = null;
+  function parseSearchPrefix(text) {
+    if (S && S.prefix === false) return null;
+    var raw = String(text || "").trim().replace(/^！/, "!");
+    var m = /^!\s*([a-zＡ-Ｚａ-ｚ]{1,8})([\s\S]*)$/i.exec(raw);
+    if (!m) return null;
+    var letters = m[1].replace(/[Ａ-Ｚａ-ｚ]/g, function (ch) {
+      return String.fromCharCode(ch.charCodeAt(0) - 0xFEE0);
+    }).toLowerCase();
+    var rest = m[2] || "";
+    // 取“最长且已知”的别名：!ghrust -> gh + rust，!grust -> g + rust
+    var alias = null;
+    for (var len = Math.min(letters.length, 3); len >= 1; len--) {
+      var a = letters.slice(0, len);
+      if (PREFIX_ENG[a]) { alias = a; break; }
+    }
+    if (!alias) return { alias: letters, engine: null, query: ((rest ? letters.slice(0) + rest : letters)).trim() };
+    var query = (letters.slice(alias.length) + rest).trim();
+    return { alias: alias, engine: PREFIX_ENG[alias], query: query };
+  }
   var ICON_VER = 7;
   var S, objUrl = null;
 
@@ -43,6 +64,10 @@
             }
           });
           r.iconVer = ICON_VER;
+        }
+        if (!r.histVer) {
+          r.history = (r.history || []).filter(function (h) { return !/^[!！]\s*[A-Za-z]/.test(h); });
+          r.histVer = 1;
         }
         r.shortcuts.forEach(function (s) {
           if (!s.icon) {
@@ -1004,6 +1029,29 @@
     if (el) el.classList.add("on");
   }
 
+  function installPasteMenu(input) {
+    if (!input) return;
+    input.addEventListener("contextmenu", function (ev) {
+      ev.preventDefault();
+      var read = null;
+      try { read = navigator.clipboard && navigator.clipboard.readText(); } catch (e) {}
+      if (!read) { toast("无法读取剪贴板，请检查浏览器权限"); return; }
+      read.then(function (txt) {
+        txt = String(txt || "");
+        if (!txt) { toast("剪贴板是空的"); return; }
+        var s = input.selectionStart == null ? input.value.length : input.selectionStart;
+        var e = input.selectionEnd == null ? input.value.length : input.selectionEnd;
+        var v = input.value;
+        input.value = v.slice(0, s) + txt + v.slice(e);
+        var pos = s + txt.length;
+        input.focus();
+        try { input.setSelectionRange(pos, pos); } catch (err) {}
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        toast("已粘贴");
+      }, function () { toast("无法读取剪贴板，请检查浏览器权限"); });
+    });
+  }
+
   function paintEngine() { document.getElementById("engBtn").textContent = ENG[S.engine].n; }
 
   function paintModeBtns() {
@@ -1160,6 +1208,72 @@
     } catch (e) {}
   }
 
+  var SETTING_TIPS = {
+      "模式": "壁纸类型：渐变最省电，图片/视频更有氛围",
+      "来源": "选择本地图片/视频，或把文件命名为 bg.mp4 / bg.jpg 放进扩展文件夹",
+      "当前壁纸": "当前使用的壁纸；读取失败可点「存储自检」排查",
+      "壁纸遮罩": "壁纸上的黑色蒙层浓度，越高文字越清楚",
+      "壁纸模糊": "壁纸模糊半径，越大越柔和（更耗 GPU）",
+      "轮播": "多张图片定时切换，间隔越短越费电",
+      "搜索引擎": "默认搜索引擎；输入时可用 !前缀 临时切换",
+      "历史条数": "聚焦搜索框时最多显示几条历史，0 为关闭",
+      "搜索框样式": "搜索框外观风格",
+      "边框粗细": "搜索框描边宽度",
+      "搜索框字重": "搜索框文字粗细",
+      "文字颜色": "时钟与主要文字颜色",
+      "边框颜色": "搜索框描边颜色",
+      "主题": "深色 / 浅色 / 跟随时间 / 跟随系统",
+      "时钟格式": "12 小时制或 24 小时制",
+      "字体": "时钟与界面使用的字体",
+      "字重": "时钟数字粗细",
+      "时间颜色": "时钟单独的颜色，留空则跟随文字颜色",
+      "Dock 玻璃": "Dock 背景透明度",
+      "玻璃强度": "Dock 与面板的毛玻璃模糊强度",
+      "玻璃模式": "玻璃质感：普通或扁平",
+      "正在播放": "右下角显示当前音乐播放状态",
+      "唱片尺寸": "左下角黑胶唱片的大小",
+      "天气": "顶部天气组件开关（Open-Meteo）",
+      "时钟": "中央时钟开关",
+      "便签": "右侧便签开关，内容自动保存到本机",
+      "便签上沿": "便签距离页面顶部的位置",
+      "显示秒数": "时钟是否显示秒",
+      "全局 Dock": "任意网页底部停留即可唤出 Dock（也可 Alt+J）",
+      "快捷键": "查看全部快捷键；浏览器级可点「修改」跳转设置",
+      "Dock 行为": "Dock 图标数量、菜单按钮与把手显示",
+      "布局": "组件位置与自由拖动",
+      "输入": "搜索前缀、页面内快捷键开关",
+      "性能": "视频内存释放等省电选项",
+      "收藏菜单": "Alt+M 收藏菜单的显示设置",
+      "下载接管": "让扩展接管浏览器下载，转给本机 PclBridge 下载器",
+      "当前状态": "下载器连接状态（需先运行安装脚本）",
+      "线程数": "单个任务的下载线程数，越大越快也越占带宽",
+      "保存目录": "下载文件的保存位置",
+      "下载通知": "下载完成时是否弹系统通知",
+      "操作": "测试连接、打开下载器或卸载",
+      "接口地址": "本机下载器地址，默认 http://127.0.0.1:6806",
+      "坐标": "音乐播放器窗口坐标（用于歌词/封面联动）",
+      "Token": "音乐播放器联动所需的本机令牌",
+      "书签": "把浏览器收藏夹导入为 Dock 快捷方式"
+  };
+  function annotateSettings() {
+    var rows = document.querySelectorAll("#mask .row");
+    Array.prototype.forEach.call(rows, function (row) {
+      if (row.querySelector(".row-tip")) return;
+      if (row.querySelector(".desc")) return;          // 快捷键行已有说明
+      var lab = row.querySelector(".lab");
+      if (!lab) return;
+      var key = (lab.textContent || "").trim();
+      var tip = SETTING_TIPS[key];
+      if (!tip) return;
+      var s = document.createElement("span");
+      s.className = "row-tip";
+      s.textContent = tip;
+      s.style.cssText = "flex-basis:100%;font-size:11.5px;line-height:1.55;color:#8d96a5;margin-top:5px";
+      row.style.flexWrap = "wrap";
+      row.appendChild(s);
+    });
+  }
+
   function closePanel() {
     var m = document.getElementById("mask");
     if (!m || !m.classList.contains("on") || m.classList.contains("closing")) return;
@@ -1205,7 +1319,7 @@
       del.onclick = function () { S.shortcuts.splice(i, 1); save(); openPanel(); paintDock(); };
       row.appendChild(mv); row.appendChild(nm); row.appendChild(ur); row.appendChild(up); row.appendChild(del); l.appendChild(row);
     });
-    paintModeBtns(); paintThemeBtns(); applyDock(); applyFont(); applyHistoryLimit(); applyColors(); renderKeysSection();
+    paintModeBtns(); paintThemeBtns(); applyDock(); applyFont(); applyHistoryLimit(); applyColors(); renderKeysSection(); annotateSettings();
   }
 
   var dockEl = document.getElementById("dock");
@@ -1330,6 +1444,7 @@
   document.getElementById("mImg").onclick = function () { S.bgMode = "image"; save(); render(); };
   document.getElementById("mVid").onclick = function () { S.bgMode = "video"; save(); render(); };
 
+  installPasteMenu(document.getElementById("q"));
   document.getElementById("engBtn").onclick = function () {
     S.engine = S.engine === "bing" ? "baidu" : "bing"; save(); paintEngine();
   };
@@ -1896,7 +2011,7 @@
     if (kind === "history") {
       html += '<div class="hd"><b>搜索历史</b><span class="clr" id="clrHis">清空</span></div>';
     } else {
-      html += '<div class="hd"><b>搜索建议</b><span style="opacity:.6">' + (S.engine === "baidu" ? "百度" : "必应") + '</span></div>';
+      html += '<div class="hd"><b>搜索建议</b><span style="opacity:.6">' + (sugLabel || (S.engine === "baidu" ? "百度" : "必应")) + '</span></div>';
     }
     list.forEach(function (s, i) {
       var t = s.replace(/[<>&"]/g, function (c) { return { "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;" }[c]; });
@@ -1942,7 +2057,11 @@
   }
 
   function applySug(list, q) {
-    if (qEl.value.trim() !== q) return;
+    var raw = qEl.value.trim();
+    var cur = parseSearchPrefix(raw);
+    var curQ = cur ? cur.query : raw;
+    if (curQ !== q) return;
+    sugLabel = cur ? (cur.engine ? ENG[cur.engine].n : "未知前缀 !" + cur.alias) : null;
     list = (list || []).filter(function (v, i, a) { return v && a.indexOf(v) === i; });
     if (!list.length) { hideSug(); return; }
     renderList("sug", list.slice(0, 8), q);
@@ -1993,7 +2112,9 @@
   }
 
   function fetchSuggest(q) {
-    var isBaidu = (S.engine === "baidu");
+    var pfSug = parseSearchPrefix(qEl.value.trim());
+    var engineNow = (pfSug && pfSug.engine) ? pfSug.engine : S.engine;
+    var isBaidu = (engineNow === "baidu");
     var isExt = !!(window.chrome && chrome.runtime && chrome.runtime.id);
 
     if (!isExt) {
@@ -2043,6 +2164,19 @@
   function doSearch(q) {
     q = (q || "").trim();
     if (!q) return;
+    if (/^[!！]/.test(q) && S.prefix === false && /^[!！]\s*[a-z]/i.test(q)) {
+      toast("搜索前缀已关闭：设置 → 交互 → 搜索前缀");
+    }
+    var pf = parseSearchPrefix(q);
+    if (pf) {
+      if (!pf.engine) { toast("未知前缀 !" + pf.alias); q = pf.query; }
+      else {
+        if (!pf.query) { toast("前缀 !" + pf.alias + " 后面要加搜索词"); return; }
+        pushHistory(pf.query);
+        location.href = ENG[pf.engine].u + encodeURIComponent(pf.query);
+        return;
+      }
+    }
     pushHistory(q);
     if (/^https?:\/\//i.test(q)) { location.href = q; return; }
     if (/^[\w-]+(\.[\w-]+)+([\/?#].*)?$/.test(q) && q.indexOf(" ") < 0) { location.href = "https://" + q; return; }
@@ -2055,11 +2189,21 @@
 
   qEl.addEventListener("input", function () {
     clearTimeout(sugTimer);
-    var q = qEl.value.trim();
-    if (!q) {
+    var raw = qEl.value.trim();
+    if (!raw) {
       if ((S.history || []).length) renderList("history", S.history, ""); else hideSug();
       return;
     }
+    var pf2 = parseSearchPrefix(raw);
+    var engBtn = document.getElementById("engBtn");
+    if (engBtn) {
+      if (pf2 && pf2.engine) { engBtn.textContent = ENG[pf2.engine].n; engBtn.style.color = ""; }
+      else if (pf2) { engBtn.textContent = "!" + pf2.alias + "?"; engBtn.style.color = "#ff8f8f"; }
+      else if (/^[!！]/.test(raw) && S.prefix === false) { engBtn.textContent = "前缀已关"; engBtn.style.color = "#ff8f8f"; }
+      else { engBtn.textContent = ENG[S.engine].n; engBtn.style.color = ""; }
+    }
+    var q = pf2 ? pf2.query : raw;
+    if (!q) { hideSug(); return; }
     sugTimer = setTimeout(function () { fetchSuggest(q); }, 220);
   });
 
@@ -2069,7 +2213,14 @@
     if (!sugEl.classList.contains("on") || !sugItems.length) return;
     if (e.key === "ArrowDown") { e.preventDefault(); selIdx = Math.min(selIdx + 1, sugItems.length - 1); mark(); }
     else if (e.key === "ArrowUp") { e.preventDefault(); selIdx = Math.max(selIdx - 1, -1); mark(); }
-    else if (e.key === "Enter" && selIdx >= 0) { e.preventDefault(); var v = sugItems[selIdx]; qEl.value = v; hideSug(); doSearch(v); }
+    else if (e.key === "Enter" && selIdx >= 0) {
+      e.preventDefault();
+      var v = sugItems[selIdx];
+      var pfEnter = parseSearchPrefix(qEl.value);
+      qEl.value = pfEnter ? ("!" + pfEnter.alias + " " + v) : v;
+      hideSug();
+      doSearch(qEl.value);
+    }
     function mark() {
       Array.prototype.forEach.call(sugEl.querySelectorAll(".it"), function (el, i) {
         el.classList.toggle("sel", i === selIdx);
