@@ -79,6 +79,7 @@
     }
     body.classList.toggle("glass-flat", S.glassMode === "flat");
     body.classList.toggle("search-outline", S.searchStyle === "outline");
+    body.classList.toggle("search-center", S.searchPos === "center");
     body.classList.toggle("notes-pinned", !!S.notesPinned);
     var pinBtn = $("notePin");
     if (pinBtn) {
@@ -1293,6 +1294,7 @@
     add("ex-search", mkRow("描边粗细", mkRange("searchBorder", 1, 6, "px", 160)));
     add("ex-search", mkRow("搜索框字重", mkChoice("searchWeight", [[300, "细"], [400, "常规"], [600, "较粗"], [700, "粗"]])));
     add("ex-search", mkRow("剪贴板历史", mkToggle("clipHistory", "记录（类似 Win+V）")));
+    add("ex-search", mkRow("垂直位置", mkChoice("searchPos", [["top", "顶部"], ["center", "页面居中"]])));
 
     /* ---- 外观 ---- */
     add("ex-look", mkRow("玻璃强度", mkRange("glass", 0, 40, "px")));
