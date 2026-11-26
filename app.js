@@ -1083,14 +1083,15 @@
   function openClipPanel() {
     var btn = document.getElementById("clipBtn");
     var p = document.getElementById("clipPanel");
-    var q = document.getElementById("q");
-    if (!p || !btn || !q) return;
+    if (!p || !btn) return;
     var r = btn.getBoundingClientRect();
-    var width = Math.max(300, Math.min(420, Math.round(r.right - q.getBoundingClientRect().left)));
-    p.style.width = width + "px";
-    p.style.left = Math.max(12, Math.round(r.right - width)) + "px";
-    p.style.top = Math.round(r.bottom + 8) + "px";
-    p.classList.add("on");
+    // 以图标中心为起点，向页面正中间弹出
+    p.style.setProperty("--dx", Math.round(r.left + r.width / 2 - window.innerWidth / 2) + "px");
+    p.style.setProperty("--dy", Math.round(r.top + r.height / 2 - window.innerHeight / 2) + "px");
+    p.classList.remove("pop");
+    void p.offsetWidth;
+    p.classList.add("on", "pop");
+    setTimeout(function () { p.classList.remove("pop"); }, 420);
     renderClipPanel();
   }
   function captureClip() {
