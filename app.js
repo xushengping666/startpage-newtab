@@ -1271,7 +1271,7 @@
 
     /* ---- 新标签页内（固定） ---- */
     head("新标签页内（固定；总开关在「交互 → 快捷键」）");
-    row("/", "/", "聚焦搜索框");
+    row("搜索", "/ 或 空格", "聚焦搜索框");
     row("数字", "1 – 9", "打开 Dock 第 N 个快捷方式");
     row("Esc", "Esc", "关闭设置面板 / 退出搜索框 / 关闭收藏菜单");
     row("联想选择", "↑ / ↓", "在搜索联想列表中上下移动");
@@ -2367,7 +2367,16 @@
     var _ae = document.activeElement;
     var _typing = _ae && (/^(INPUT|TEXTAREA|SELECT)$/.test(_ae.tagName) || _ae.isContentEditable);
     var _panelOn = document.getElementById("mask").classList.contains("on");
-    if (e.key === "/" && !_typing && !_panelOn && _ae !== qEl) {
+    var _menuOn = (function () {
+      var m = document.getElementById("appmenu");
+      return !!(m && m.classList.contains("on"));
+    })();
+    var _clipOn = (function () {
+      var c = document.getElementById("clipPanel");
+      return !!(c && c.classList.contains("on"));
+    })();
+    var _interactive = _ae && /^(BUTTON|A)$/.test(_ae.tagName);
+    if ((e.key === "/" || e.code === "Space" || e.key === " ") && !_typing && !_panelOn && !_menuOn && !_clipOn && _ae !== qEl && !_interactive) {
       e.preventDefault(); qEl.focus();
     }
     if (e.key === "Escape") {
