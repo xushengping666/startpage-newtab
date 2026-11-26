@@ -1283,7 +1283,7 @@
 
     /* ---- 新标签页内（固定） ---- */
     head("新标签页内（固定；总开关在「交互 → 快捷键」）");
-    row("搜索", "/ 或 空格", "聚焦搜索框");
+    row("搜索", "/ 或 空格", "聚焦搜索框（新标签页打开即可用，无需先点鼠标）");
     row("数字", "1 – 9", "打开 Dock 第 N 个快捷方式");
     row("Esc", "Esc", "关闭设置面板 / 退出搜索框 / 关闭收藏菜单");
     row("联想选择", "↑ / ↓", "在搜索联想列表中上下移动");
@@ -1297,7 +1297,7 @@
     row("收起 Dock", "Esc", "或滚动页面、点击别处");
 
     var tip = document.createElement("div"); tip.className = "tip";
-    tip.textContent = "浏览器快捷键由 Edge 统一管理，扩展不能直接改；点「修改」会打开 edge://extensions/shortcuts。页面内快捷键目前固定，可在「交互」里整体开关。";
+    tip.textContent = "浏览器快捷键由 Edge 统一管理，扩展不能直接改；点「修改」会打开 edge://extensions/shortcuts。页面内快捷键目前固定，可在「交互」里整体开关。新标签页打开后会自动聚焦页面，空格/斜杠直接可用；输入框和便签内不会触发。";
     box.appendChild(tip);
 
     try {
