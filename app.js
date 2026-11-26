@@ -1143,6 +1143,18 @@
     });
   }
 
+  function takePageFocus() {
+    try {
+      var ae = document.activeElement;
+      if (ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) return;
+      var mask = document.getElementById("mask");
+      if (mask && mask.classList.contains("on")) return;
+      document.body.setAttribute("tabindex", "-1");
+      document.body.style.outline = "none";
+      document.body.focus({ preventScroll: true });
+    } catch (e) {}
+  }
+
   function paintEngine() { document.getElementById("engBtn").textContent = ENG[S.engine].n; }
 
   function paintModeBtns() {
@@ -2469,6 +2481,12 @@
   }, 10000);
   window.addEventListener("resize", function () { setTimeout(refreshContrast, 300); });
   normalizeIcons();
+  takePageFocus();
+  setTimeout(takePageFocus, 80);
+  window.addEventListener("focus", function () {
+    var ae = document.activeElement;
+    if (!ae || ae === document.body || ae === document.documentElement) takePageFocus();
+  });
   setInterval(paintClock, 1000);
   setTimeout(ensurePlaying, 1500);
 
