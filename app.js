@@ -1605,7 +1605,15 @@
     if (cached && cached.k === key && cached.t) { renderQuote(cached.t, cached.f || ""); return; }
 
     var fallback = localDaily();
-    renderQuote(fallback.t, fallback.f);   // 先给本地兜底，联网成功再替换
+    // 按日期隔天交替：一天名言，一天诗词
+    var now2 = new Date();
+    var dayNum2 = Math.floor(Date.UTC(now2.getFullYear(), now2.getMonth(), now2.getDate()) / 86400000);
+    var mode = ((dayNum2 % 2) + 2) % 2;      // 0 = 名言，1 = 诗词（隔天交替）
+    renderQuote(fallback.t, fallback.f);      // 先给本地兜底
+    if (mode === 0) {
+      try { localStorage.setItem(QUOTE_CACHE, JSON.stringify({ k: key, t: fallback.t, f: fallback.f, src: "local" })); } catch (e) {}
+      return;                                  // 名言日：不联网，直接用本地
+    }
     fetch("https://v1.jinrishici.com/all.json", { cache: "no-store" })
       .then(function (r) { return r.json(); })
       .then(function (j) {
