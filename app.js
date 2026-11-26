@@ -1337,6 +1337,50 @@
     else toast("只支持图片或视频文件");
   });
 
+  function normBmUrl(u) {
+    try {
+      var x = new URL(u);
+      var p = x.pathname.replace(/\/$/, "");
+      return (x.origin + p + x.search).toLowerCase();
+    } catch (e) { return String(u || "").toLowerCase(); }
+  }
+  function importBookmarks(scope) {
+    if (!window.chrome || !chrome.bookmarks || !chrome.bookmarks.getTree) { toast("当前环境读不到书签到数据"); return; }
+    chrome.bookmarks.getTree(function (tree) {
+      var out = [];
+      function walk(n) {
+        if (!n) return;
+        if (n.url && /^https?:/i.test(n.url)) out.push({ name: (n.title || "").trim(), url: n.url });
+        (n.children || []).forEach(walk);
+      }
+      var root = (tree && tree[0] && tree[0].children) || [];
+      if (scope === "bar") {
+        var bar = root.filter(function (n) { return n.id === "1"; })[0] || root[0];
+        (bar && bar.children || []).forEach(walk);
+      } else {
+        root.forEach(walk);
+      }
+      var seen = {};
+      (S.shortcuts || []).forEach(function (s) { seen[normBmUrl(s.url)] = 1; });
+      var added = 0, dup = 0, cap = 120;
+      out.forEach(function (b) {
+        if (added >= cap) return;
+        var key = normBmUrl(b.url);
+        if (seen[key]) { dup++; return; }
+        seen[key] = 1;
+        var nm = (b.name || "").slice(0, 24);
+        if (!nm) { try { nm = new URL(b.url).hostname.replace(/^www\./, ""); } catch (e) { nm = "书签"; } }
+        S.shortcuts.push({ name: nm, url: b.url, fromBookmark: true });
+        added++;
+      });
+      if (added) { save(); paintDock(); openPanel(); try { refreshSiteIcons(); } catch (e) {} try { applyGlobalDock(); } catch (e) {} }
+      toast("已导入 " + added + " 个书签" + (dup ? "，跳过 " + dup + " 个重复" : "") + (added >= cap ? "（单次上限 " + cap + "）" : ""));
+    });
+  }
+  var bmBar = document.getElementById("bmBar"), bmAll = document.getElementById("bmAll");
+  if (bmBar) bmBar.onclick = function () { importBookmarks("bar"); };
+  if (bmAll) bmAll.onclick = function () { importBookmarks("all"); };
+
   document.getElementById("add").onclick = function () {
     var n = document.getElementById("newName").value.trim();
     var u = document.getElementById("newUrl").value.trim();
