@@ -497,7 +497,7 @@
       if (!list.length) { SP.toast("书签栏是空的"); return; }
       var added = 0;
       list.forEach(function (n) {
-        if (S.shortcuts.some(function (s) { return s.url === n.url; })) return;
+        if (hasUrl(n.url)) return;
         S.shortcuts.push({ name: (n.title || "书签").slice(0, 10), url: n.url });
         added++;
       });
@@ -880,10 +880,18 @@
   }
 
   var bmInited = false;
+  function siteKey(u) {
+    try {
+      var x = new URL(u);
+      var h = x.hostname.toLowerCase().replace(/^(www|m|mobile|wap)\./, "");
+      var p = (x.port && x.port !== "80" && x.port !== "443") ? ":" + x.port : "";
+      return h + p;
+    } catch (e) { return String(u || "").toLowerCase(); }
+  }
   function normU(u) { try { var x = new URL(u); return (x.origin + x.pathname.replace(/\/$/, "") + x.search).toLowerCase(); } catch (e) { return String(u || "").toLowerCase(); } }
   function hasUrl(u) {
-    var k = normU(u);
-    return (S.shortcuts || []).some(function (s) { return normU(s.url) === k; });
+    var k = siteKey(u);
+    return (S.shortcuts || []).some(function (s) { return siteKey(s.url) === k; });
   }
   function hasMenuUrl(u) {
     var k = normU(u);

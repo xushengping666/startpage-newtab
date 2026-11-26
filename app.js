@@ -29,6 +29,8 @@
         var o = JSON.parse(raw), r = clone(DEF);
         for (var k in o) { if (Object.prototype.hasOwnProperty.call(o, k)) r[k] = o[k]; }
         if (!r.shortcuts || !r.shortcuts.length) r.shortcuts = clone(DEF.shortcuts);
+        else r.shortcuts = dedupeShortcuts(r.shortcuts);
+        if (r.menuLinks) r.menuLinks = dedupeLinks(r.menuLinks);
         if ((r.fontVer || 0) < 2) {
           if (!r.clockWeight || r.clockWeight === 600) r.clockWeight = 400;
           r.fontVer = 2;
@@ -80,8 +82,36 @@
     } catch (e) {}
   }
 
+  function dedupeShortcuts(list) {
+    var seen = {}, out = [];
+    (list || []).forEach(function (s) {
+      if (!s || !s.url) return;
+      var k = siteKey(s.url);
+      var prev = seen[k];
+      if (prev) {
+        if (!prev.icon && s.icon) { prev.icon = s.icon; }
+        if (!prev.custom && s.custom) prev.custom = true;
+        if (!prev.norm && s.norm) prev.norm = true;
+        if (!prev.name && s.name) prev.name = s.name;
+        return;
+      }
+      seen[k] = s; out.push(s);
+    });
+    return out;
+  }
+  function dedupeLinks(list) {
+    var seen = {}, out = [];
+    (list || []).forEach(function (m) {
+      if (!m || !m.url) return;
+      var k = canonUrl(m.url);
+      if (seen[k]) return;
+      seen[k] = 1; out.push(m);
+    });
+    return out;
+  }
   function save() {
     try {
+      S.shortcuts = dedupeShortcuts(S.shortcuts);
       localStorage.setItem(KEY, JSON.stringify(S, function (k, v) {
         if (k.charAt(0) === "_") return undefined;
         return v;
@@ -472,13 +502,113 @@
     }).catch(function () { return null; });
   }
 
+  // 用 <img> 读浏览器图标缓存（fetch 读 chrome-extension://_favicon 不可靠）
+  function loadIconViaImage(url, timeoutMs) {
+    return new Promise(function (res, rej) {
+      var img = new Image();
+      var done = false;
+      var timer = setTimeout(function () { if (!done) { done = true; rej(new Error("timeout")); } }, timeoutMs || 2500);
+      img.onload = function () {
+        if (done) return;
+        if (!img.naturalWidth || img.naturalWidth < 8) { done = true; clearTimeout(timer); return rej(new Error("tiny")); }
+        try {
+          var d = loadImgToDataUrl(img.src, 96);
+          done = true; clearTimeout(timer);
+          d.then(res, rej);
+        } catch (e) { done = true; clearTimeout(timer); rej(e); }
+      };
+      img.onerror = function () { if (!done) { done = true; clearTimeout(timer); rej(new Error("img")); } };
+      img.src = url;
+    });
+  }
+
+  // 浏览器对“没有图标的网址”会返回一张默认地球图，先算出它的指纹再排除
+  var defaultFavPromise = null;
+  function isDefaultFavicon(dataUrl) {
+    if (!defaultFavPromise) {
+      defaultFavPromise = new Promise(function (res) {
+        try {
+          var probe = "https://cnat-no-favicon-" + Date.now() + ".invalid/";
+          loadIconViaImage(chrome.runtime.getURL("/_favicon/?pageUrl=" + encodeURIComponent(probe) + "&size=128"), 2500)
+            .then(res, function () { res(""); });
+        } catch (e) { res(""); }
+      });
+    }
+    return defaultFavPromise.then(function (d) { return !!d && d === dataUrl; });
+  }
+
+  function browserFavicon(s) {
+    try {
+      if (!(window.chrome && chrome.runtime && chrome.runtime.getURL)) return Promise.reject(new Error("no-api"));
+      var tries = [s.url];
+      try {
+        var o = new URL(s.url);
+        tries.push(o.origin + "/", o.origin);
+      } catch (e) {}
+      var i = 0;
+      function next() {
+        if (i >= tries.length) return Promise.reject(new Error("favicon-cache-miss"));
+        var page = tries[i++];
+        var u = chrome.runtime.getURL("/_favicon/?pageUrl=" + encodeURIComponent(page) + "&size=128");
+        return loadIconViaImage(u, 2500).then(function (d) {
+          return isDefaultFavicon(d).then(function (isDef) {
+            if (isDef) return next();
+            return d;
+          });
+        }, next);
+      }
+      return next();
+    } catch (e) { return Promise.reject(e); }
+  }
+
+  // 第三方图标源：并发尝试，先成功且尺寸够大的胜出
+  function thirdPartyIcon(host) {
+    if (!host) return Promise.reject(new Error("host"));
+    var list = [
+      "https://favicon.cccyun.cc/" + host,
+      "https://favicon.im/" + host + "?size=128",
+      "https://api.faviconkit.com/" + host + "/128",
+      "https://icons.duckduckgo.com/ip3/" + host + ".ico",
+      "https://www.google.com/s2/favicons?domain=" + host + "&sz=128"
+    ];
+    return new Promise(function (res, rej) {
+      var pending = list.length, done = false;
+      list.forEach(function (u) {
+        // 走 fetch+blob，避免 <img> 跨域把 canvas 污染导致 toDataURL 失败
+        downloadTile(u).then(function (d) {
+          if (done) return;
+          done = true; res(d);
+        }, function () {
+          if (--pending <= 0 && !done) { done = true; rej(new Error("third-none")); }
+        });
+      });
+    });
+  }
+
+  function withTimeout(promise, ms) {
+    return new Promise(function (res, rej) {
+      var t = setTimeout(function () { rej(new Error("timeout")); }, ms);
+      promise.then(function (v) { clearTimeout(t); res(v); }, function (e) { clearTimeout(t); rej(e); });
+    });
+  }
+
   function extIcon(s) {
     var host = hostOf(s.url);
     if (!host) return Promise.reject(new Error("host"));
-    var key = "icon:" + host + ":v2";
+    var key = "icon:" + host + ":v3";
     return idbGet(key).then(function (c) {
       if (c) return c;
+      return browserFavicon(s)
+        .catch(function () { return withTimeout(webIcon(s, host), 3500); })
+        .catch(function () { return thirdPartyIcon(host); });
+    }).then(function (dataUrl) {
+      if (!dataUrl) throw new Error("none");
+      return idbPut(key, dataUrl).then(function () { return dataUrl; });
+    });
+  }
 
+  function webIcon(s, host) {
+    return (function () {
       return fetch("https://" + host + "/", { credentials: "omit" })
         .then(function (r) { return r.ok ? r.text() : ""; })
         .catch(function () { return ""; })
@@ -518,10 +648,7 @@
             next();
           });
         });
-    }).then(function (dataUrl) {
-      if (!dataUrl) throw new Error("none");
-      return idbPut(key, dataUrl).then(function () { return dataUrl; });
-    });
+    })();
   }
 
   var FAVOR_API = "https://favicon.cccyun.cc/";
@@ -579,12 +706,15 @@
     var changed = false;
     (S.shortcuts || []).forEach(function (s) {
       if (defUrls.indexOf(s.url) >= 0) return;   // 默认 7 个：固定内置图标
-      if (s.iconV === 2) return;                 // 已抓到高清图
-      if (s.autoTried === 2) return;             // 只尝试一次，避免反复清掉
-      s.icon = null;
-      s.custom = false;
-      s.autoTried = 2;
+      if (s.iconV === 2 || s.icon) return;       // 已有图标：不再清空
+      var now = Date.now();
+      if (s.iconTryAt && now - s.iconTryAt < 6 * 3600 * 1000) return;   // 6 小时内只试一次
+      s.iconTryAt = now;
       changed = true;
+      fetchIconFor(s).then(function (d) {
+        if (!d) return;
+        save(); paintDock();
+      }, function () {});
     });
     if (changed) save();
   }
@@ -948,6 +1078,88 @@
     inp.click();
   }
 
+  function openShortcutSettings() {
+    var url = "chrome://extensions/shortcuts";
+    try {
+      chrome.tabs.create({ url: url }, function () {
+        if (chrome.runtime.lastError) fallback();
+      });
+    } catch (e) { fallback(); }
+    function fallback() {
+      try { navigator.clipboard.writeText(url); } catch (e2) {}
+      toast("浏览器禁止扩展直接打开该页，已复制地址：" + url);
+    }
+  }
+
+  function renderKeysSection() {
+    var box = document.getElementById("ex-keys");
+    if (!box) return;
+    box.innerHTML = "";
+
+    function head(text) {
+      var h = document.createElement("div");
+      h.textContent = text;
+      h.style.cssText = "margin:16px 0 8px;font-size:12px;font-weight:600;letter-spacing:1px;color:#7f8899";
+      box.appendChild(h);
+    }
+    function row(label, key, desc, btn) {
+      var r = document.createElement("div");
+      r.className = "row";
+      var lab = document.createElement("span"); lab.className = "lab"; lab.textContent = label;
+      var k = document.createElement("kbd"); k.textContent = key;
+      k.style.cssText = "margin-right:12px;padding:4px 10px;border-radius:7px;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.14);font-size:12.5px;font-family:Consolas,Monaco,monospace;white-space:nowrap";
+      var d = document.createElement("span");
+      d.textContent = desc || "";
+      d.style.cssText = "flex:1;font-size:12px;color:#8d96a5";
+      r.appendChild(lab); r.appendChild(k); r.appendChild(d);
+      if (btn) { r.appendChild(btn); }
+      box.appendChild(r);
+      return k;
+    }
+
+    /* ---- 浏览器级（可改） ---- */
+    head("浏览器快捷键（可在 edge://extensions/shortcuts 修改）");
+    var cmds = [
+      { label: "收藏菜单", name: "open-menu", def: "Alt + M", desc: "任意网页原地弹出收藏菜单" },
+      { label: "全局 Dock", name: "toggle-dock", def: "Alt + J", desc: "任意网页唤出底部 Dock" }
+    ];
+    var kbds = {};
+    cmds.forEach(function (c) {
+      var b = document.createElement("button"); b.textContent = "修改";
+      b.onclick = openShortcutSettings;
+      kbds[c.name] = row(c.label, c.def, c.desc, b);
+    });
+
+    /* ---- 新标签页内（固定） ---- */
+    head("新标签页内（固定；总开关在「交互 → 快捷键」）");
+    row("/", "/", "聚焦搜索框");
+    row("数字", "1 – 9", "打开 Dock 第 N 个快捷方式");
+    row("Esc", "Esc", "关闭设置面板 / 退出搜索框 / 关闭收藏菜单");
+    row("联想选择", "↑ / ↓", "在搜索联想列表中上下移动");
+    row("执行", "Enter", "打开选中的联想项，或直接搜索");
+    row("前缀", "!g !b !bd !z !tb !gh", "临时切换搜索引擎（需开启「搜索前缀」）");
+
+    /* ---- 全局菜单 / Dock（固定） ---- */
+    head("全局菜单与 Dock（任意网页）");
+    row("打开菜单", "Alt + M", "浮层打开，不跳转；点空白或 Esc 关闭");
+    row("唤出 Dock", "Alt + J", "鼠标在屏幕底部停留 0.3 秒也会自动出现");
+    row("收起 Dock", "Esc", "或滚动页面、点击别处");
+
+    var tip = document.createElement("div"); tip.className = "tip";
+    tip.textContent = "浏览器快捷键由 Edge 统一管理，扩展不能直接改；点「修改」会打开 edge://extensions/shortcuts。页面内快捷键目前固定，可在「交互」里整体开关。";
+    box.appendChild(tip);
+
+    try {
+      if (chrome.commands && chrome.commands.getAll) {
+        chrome.commands.getAll(function (list) {
+          (list || []).forEach(function (c) {
+            if (kbds[c.name]) kbds[c.name].textContent = c.shortcut || "未分配";
+          });
+        });
+      }
+    } catch (e) {}
+  }
+
   function closePanel() {
     var m = document.getElementById("mask");
     if (!m || !m.classList.contains("on") || m.classList.contains("closing")) return;
@@ -993,7 +1205,7 @@
       del.onclick = function () { S.shortcuts.splice(i, 1); save(); openPanel(); paintDock(); };
       row.appendChild(mv); row.appendChild(nm); row.appendChild(ur); row.appendChild(up); row.appendChild(del); l.appendChild(row);
     });
-    paintModeBtns(); paintThemeBtns(); applyDock(); applyFont(); applyHistoryLimit(); applyColors();
+    paintModeBtns(); paintThemeBtns(); applyDock(); applyFont(); applyHistoryLimit(); applyColors(); renderKeysSection();
   }
 
   var dockEl = document.getElementById("dock");
@@ -1346,6 +1558,27 @@
     else toast("只支持图片或视频文件");
   });
 
+  function siteKey(u) {
+    try {
+      var x = new URL(u);
+      var h = x.hostname.toLowerCase().replace(/^(www|m|mobile|wap)\./, "");
+      var p = (x.port && x.port !== "80" && x.port !== "443") ? ":" + x.port : "";
+      return h + p;
+    } catch (e) { return String(u || "").toLowerCase(); }
+  }
+  function canonUrl(u) {
+    try {
+      var x = new URL(u);
+      var h = x.hostname.toLowerCase().replace(/^(www|m|mobile|wap)\./, "");
+      var port = (x.port && x.port !== "80" && x.port !== "443") ? ":" + x.port : "";
+      var path = x.pathname.replace(/\/+$/, "") || "/";
+      var drop = /^(utm_.*|spm|from|share_source|share_medium|fbclid|gclid|ref)$/i;
+      var qs = [];
+      x.searchParams.forEach(function (v, k) { if (!drop.test(k)) qs.push(k + "=" + v); });
+      qs.sort();
+      return h + port + path + (qs.length ? "?" + qs.join("&") : "");
+    } catch (e) { return String(u || "").toLowerCase(); }
+  }
   function normBmUrl(u) {
     try {
       var x = new URL(u);
@@ -1370,11 +1603,11 @@
         root.forEach(walk);
       }
       var seen = {};
-      (S.shortcuts || []).forEach(function (s) { seen[normBmUrl(s.url)] = 1; });
+      (S.shortcuts || []).forEach(function (s) { seen[siteKey(s.url)] = 1; });
       var added = 0, dup = 0, cap = 120;
       out.forEach(function (b) {
         if (added >= cap) return;
-        var key = normBmUrl(b.url);
+        var key = siteKey(b.url);
         if (seen[key]) { dup++; return; }
         seen[key] = 1;
         var nm = (b.name || "").slice(0, 24);
@@ -1395,6 +1628,9 @@
     var u = document.getElementById("newUrl").value.trim();
     if (!n || !u) return;
     if (!/^https?:\/\//i.test(u)) u = "https://" + u;
+    var sk = siteKey(u);
+    var dupItem = (S.shortcuts || []).filter(function (s) { return siteKey(s.url) === sk; })[0];
+    if (dupItem) { toast("该站点已在 Dock：" + dupItem.name); return; }
     var item = { name: n, url: u };
     S.shortcuts.push(item);
     save(); openPanel(); paintDock();
