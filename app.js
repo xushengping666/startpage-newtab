@@ -1143,31 +1143,6 @@
     });
   }
 
-  function grabSearchFocus() {
-    try {
-      var q = document.getElementById("q");
-      if (!q) return;
-      var ae = document.activeElement;
-      if (ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName) && ae !== q) return;
-      var mask = document.getElementById("mask");
-      if (mask && mask.classList.contains("on")) return;
-      try { window.focus(); } catch (e) {}
-      q.focus({ preventScroll: true });
-    } catch (e) {}
-  }
-
-  function takePageFocus() {
-    try {
-      var ae = document.activeElement;
-      if (ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) return;
-      var mask = document.getElementById("mask");
-      if (mask && mask.classList.contains("on")) return;
-      document.body.setAttribute("tabindex", "-1");
-      document.body.style.outline = "none";
-      document.body.focus({ preventScroll: true });
-    } catch (e) {}
-  }
-
   function paintEngine() { document.getElementById("engBtn").textContent = ENG[S.engine].n; }
 
   function paintModeBtns() {
@@ -1296,7 +1271,7 @@
 
     /* ---- 新标签页内（固定） ---- */
     head("新标签页内（固定；总开关在「交互 → 快捷键」）");
-    row("搜索", "/ 或 空格", "聚焦搜索框（新标签页打开即可用，无需先点鼠标）");
+    row("搜索", "/ 或 空格", "聚焦搜索框");
     row("数字", "1 – 9", "打开 Dock 第 N 个快捷方式");
     row("Esc", "Esc", "关闭设置面板 / 退出搜索框 / 关闭收藏菜单");
     row("联想选择", "↑ / ↓", "在搜索联想列表中上下移动");
@@ -1310,7 +1285,7 @@
     row("收起 Dock", "Esc", "或滚动页面、点击别处");
 
     var tip = document.createElement("div"); tip.className = "tip";
-    tip.textContent = "浏览器快捷键由 Edge 统一管理，扩展不能直接改；点「修改」会打开 edge://extensions/shortcuts。页面内快捷键目前固定，可在「交互」里整体开关。新标签页打开后会自动聚焦搜索框，不用先点鼠标就能直接输入或按空格；输入框/便签内不会重复触发。";
+    tip.textContent = "浏览器快捷键由 Edge 统一管理，扩展不能直接改；点「修改」会打开 edge://extensions/shortcuts。页面内快捷键目前固定，可在「交互」里整体开关。";
     box.appendChild(tip);
 
     try {
@@ -2140,9 +2115,7 @@
     }, 160);
   });
   blurEl.addEventListener("mousedown", function (ev) { ev.preventDefault(); hideSearchBlur(); qEl.blur(); });
-  qEl.addEventListener("keydown", function (ev) {
-    if ((ev.code === "Space" || ev.key === " ") && !qEl.value) { ev.preventDefault(); return; }
-    if (ev.key === "Escape") { hideSearchBlur(); qEl.blur(); } });
+  qEl.addEventListener("keydown", function (ev) { if (ev.key === "Escape") { hideSearchBlur(); qEl.blur(); } });
   var sf = document.getElementById("sf");
   if (sf) sf.addEventListener("submit", function () { hideSearchBlur(); });
   var sugItems = [], selIdx = -1, sugTimer = null, jsonpN = 0;
@@ -2496,20 +2469,6 @@
   }, 10000);
   window.addEventListener("resize", function () { setTimeout(refreshContrast, 300); });
   normalizeIcons();
-  takePageFocus();
-  setTimeout(takePageFocus, 80);
-  var __userTouched = false;
-  ["pointerdown", "keydown", "wheel"].forEach(function (ev) {
-    window.addEventListener(ev, function () { __userTouched = true; }, { once: true, capture: true });
-  });
-  [0, 120, 300, 700, 1200].forEach(function (ms) {
-    setTimeout(function () { if (!__userTouched) grabSearchFocus(); }, ms);
-  });
-  window.addEventListener("focus", function () { if (!__userTouched) grabSearchFocus(); });
-  window.addEventListener("focus", function () {
-    var ae = document.activeElement;
-    if (!ae || ae === document.body || ae === document.documentElement) takePageFocus();
-  });
   setInterval(paintClock, 1000);
   setTimeout(ensurePlaying, 1500);
 
