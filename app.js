@@ -849,9 +849,11 @@
     if (t === "light") light = true;
     else if (t === "dark") light = false;
     else if (t === "system") {
-      try { light = !window.matchMedia("(prefers-color-scheme: dark)").matches; } catch (e) { light = false; }
+      try { light = !window.matchMedia("(prefers-color-scheme: dark)").matches; }
+      catch (e) { light = false; }
     } else { var hr = new Date().getHours(); light = (hr >= 7 && hr < 19); }
     document.body.classList.toggle("light", light);
+    try { if (window.chrome && chrome.storage && chrome.storage.local) chrome.storage.local.set({ spUi: { light: light } }); } catch (e) {}
   }
 
   // 跟随系统深浅色变化
@@ -1229,6 +1231,13 @@
           cv.height = Math.round(img.height * sc);
           cv.getContext("2d").drawImage(img, 0, 0, cv.width, cv.height);
           var dataUrl = cv.toDataURL("image/jpeg", 0.85);
+          try {
+            var sx = Math.max(1, Math.floor(cv.width / 16)), sy = Math.max(1, Math.floor(cv.height / 16));
+            var sd = cv.getContext("2d").getImageData(Math.floor(cv.width / 2) - sx, Math.floor(cv.height / 2) - sy, sx * 2, sy * 2).data;
+            var rr = 0, gg = 0, bb = 0, nn = 0;
+            for (var pi = 0; pi < sd.length; pi += 4) { rr += sd[pi]; gg += sd[pi + 1]; bb += sd[pi + 2]; nn++; }
+            if (nn) S.bgAvg = "rgb(" + Math.round(rr / nn) + "," + Math.round(gg / nn) + "," + Math.round(bb / nn) + ")";
+          } catch (e) {}
           if (!dataUrl || dataUrl.length < 200) { toast("图片转换失败，换一张试试"); return; }
           S.bgMode = "image";
           var dims = cv.width + "×" + cv.height;

@@ -317,9 +317,87 @@ chrome.downloads.onCreated.addListener(function (item) {
 });
 
 chrome.commands.onCommand.addListener(function (cmd) {
+  function openFallbackTab() {
+    try { chrome.tabs.create({ url: chrome.runtime.getURL("index.html") + "#menu" }); } catch (e) {}
+  }
+  if (cmd === "open-menu") {
+    chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+      var t = tabs && tabs[0];
+      if (!t) return;
+      var extBase = chrome.runtime.getURL("");
+      function isOwnPage(u) {
+        u = u || "";
+        return u.indexOf(extBase) === 0 || /^(chrome|edge):\/\/newtab/i.test(u) || /^(chrome|edge):\/\/start/i.test(u);
+      }
+      function retryOwn(times) {
+        chrome.tabs.sendMessage(t.id, { type: "sp-open-menu" }, function () {
+          if (!chrome.runtime.lastError) return;
+          if (times > 0) setTimeout(function () { retryOwn(times - 1); }, 700);
+        });
+      }
+      // 1) 页面里已有菜单 → 直接显示
+      chrome.tabs.sendMessage(t.id, { type: "sp-open-menu" }, function () {
+        if (!chrome.runtime.lastError) return;
+        // 2) 新标签页 / 自己页面：等加载完再试，绝不跳转
+        if (isOwnPage(t.url) || isOwnPage(t.pendingUrl)) { retryOwn(3); return; }
+        // 3) 普通网页：注入 menu.js，它注入后会自己弹出，不需要再发消息
+        chrome.scripting.executeScript({ target: { tabId: t.id }, files: ["menu.js"] }, function () {
+          // 注入失败（edge:// 等）就什么也不做，不新开标签
+          void chrome.runtime.lastError;
+        });
+      });
+    });
+    return;
+  }
   if (cmd !== "toggle-dock") return;
   chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
     if (!tabs || !tabs[0]) return;
     chrome.tabs.sendMessage(tabs[0].id, { type: "sp-toggle-dock" }, function () { void chrome.runtime.lastError; });
   });
 });
+// 供内容脚本（全局 Dock / 菜单）读取收藏夹
+try {
+  chrome.runtime.onMessage.addListener(function (m, sender, sendResponse) {
+    if (!m || m.type !== "sp-get-bookmarks") return;
+    try {
+      chrome.bookmarks.getTree(function (tree) {
+        var out = [];
+        function walk(n, path) {
+          if (!n) return;
+          if (n.url && /^https?:/i.test(n.url)) { out.push({ name: (n.title || "").trim().slice(0, 60), url: n.url, dir: path.length ? path.join(" / ") : "收藏夹栏" }); return; }
+          var p = path;
+          if (n.id === "1") p = ["收藏夹栏"];
+          else if (n.id === "2") p = ["其他收藏夹"];
+          else if (n.title) p = path.concat(n.title);
+          (n.children || []).forEach(function (c) { walk(c, p); });
+        }
+        ((tree && tree[0] && tree[0].children) || []).forEach(function (c) { walk(c, []); });
+        sendResponse({ ok: true, items: out.slice(0, 500) });
+      });
+    } catch (e) { sendResponse({ ok: false, error: String(e), items: [] }); }
+    return true;
+  });
+} catch (e) {}
+
+// 供内容脚本批量取收藏图标（走浏览器图标缓存，转成 dataURL）
+try {
+  chrome.runtime.onMessage.addListener(function (m, sender, sendResponse) {
+    if (!m || m.type !== "sp-icons" || !m.urls) return;
+    var urls = m.urls.slice(0, 80);
+    var out = {}, left = urls.length;
+    if (!left) { sendResponse({ icons: out }); return true; }
+    urls.forEach(function (u) {
+      var fu = chrome.runtime.getURL("/_favicon/?pageUrl=" + encodeURIComponent(u) + "&size=32");
+      fetch(fu).then(function (r) { return r.ok ? r.blob() : Promise.reject(); }).then(function (b) {
+        return b.arrayBuffer().then(function (buf) {
+          var bytes = new Uint8Array(buf), bin = "";
+          for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+          out[u] = "data:" + (b.type || "image/png") + ";base64," + btoa(bin);
+        });
+      }).catch(function () {}).then(function () {
+        if (--left === 0) sendResponse({ icons: out });
+      });
+    });
+    return true;
+  });
+} catch (e) {}

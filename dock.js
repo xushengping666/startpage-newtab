@@ -1,4 +1,4 @@
-/* 全局浮动 Dock：任意网页按 Alt+Shift+D 或鼠标移到屏幕底部唤出 */
+/* 全局浮动 Dock：任意网页按 Alt+J 或鼠标移到屏幕底部唤出 */
 (function () {
   if (location.protocol === "chrome-extension:") return;   // 新标签页自己已经有 Dock
   if (window.__spGlobalDock) return;
@@ -10,6 +10,9 @@
   var link = document.createElement("link");
   link.rel = "stylesheet";
   link.href = chrome.runtime.getURL("dock.css");
+  host.style.visibility = "hidden";
+  link.onload = function () { host.style.visibility = ""; };
+  link.onerror = function () { host.style.visibility = ""; };
   root.appendChild(link);
 
   var hot = document.createElement("div"); hot.className = "hot";
@@ -31,7 +34,7 @@
     }
     items.slice(0, 12).forEach(function (s) {
       var a = document.createElement("a");
-      a.className = "it"; a.href = s.url; a.target = "_blank"; a.rel = "noreferrer";
+      a.className = "it"; a.setAttribute("role", "link"); a.tabIndex = 0;
       a.title = s.name || s.url;
       var fav = "";
       try { fav = "https://" + new URL(s.url).hostname + "/favicon.ico"; } catch (e) {}
@@ -47,7 +50,11 @@
       } else {
         a.appendChild(fallback(s.name));
       }
-      dock.appendChild(a);
+      a.onclick = function (ev) {
+      ev.preventDefault(); ev.stopPropagation();
+      window.open(s.url, "_blank", "noopener");
+    };
+    dock.appendChild(a);
     });
   }
   function fallback(name) {
@@ -128,19 +135,17 @@
   // 底部常驻一个小把手，点一下也能开
   var handle = document.createElement("div");
   handle.className = "handle";
-  handle.title = "点击打开 Dock（Alt+Shift+D）";
+  handle.title = "点击打开 Dock（Alt+J）";
   handle.addEventListener("click", function (e) { e.stopPropagation(); toggle(); });
   root.appendChild(handle);
   wrap.addEventListener("mouseenter", function () { clearTimeout(hideTimer); });
   wrap.addEventListener("mouseleave", function () { hide(700); });
   document.addEventListener("keydown", function (e) {
-    if (e.altKey && e.shiftKey && (e.key === "D" || e.key === "d")) {
-      e.preventDefault(); toggle();
-    }
     if (e.key === "Escape") hide(0);
   }, true);
   chrome.runtime.onMessage.addListener(function (m) {
-    if (m && m.type === "sp-toggle-dock") toggle();
+    if (!m) return;
+    if (m.type === "sp-toggle-dock") toggle();
   });
   window.addEventListener("blur", function () { hide(0); });
 })();

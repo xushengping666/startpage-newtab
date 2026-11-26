@@ -1,6 +1,21 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
+<script>
+(function(){
+  try {
+    var o = JSON.parse(localStorage.getItem("startpage.v2") || "{}");
+    if (o && o.bgAvg) {
+      window.__spFirstBg = o.bgAvg;
+      document.documentElement.style.background = o.bgAvg;
+      var st = document.createElement("style");
+      st.textContent = "body{background:" + o.bgAvg + " !important}";
+      (document.head || document.documentElement).appendChild(st);
+    }
+  } catch (e) {}
+})();
+</script>
+<meta name="color-scheme" content="light dark">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>新标签页</title>
@@ -10,7 +25,9 @@
   html, body { height: 100%; }
   body { -webkit-user-select: none; user-select: none; }
   input, textarea, .panel, .sug { -webkit-user-select: text; user-select: text; }
-  body { margin: 0; overflow: hidden; background: #10131a; color: #fff;
+  html { background: #eaf0f6; }
+  @media (prefers-color-scheme: dark) { html { background: #10131a; } }
+  body { margin: 0; overflow: hidden; background: linear-gradient(135deg, #e9eef5 0%, #e4e9f1 45%, #efe7ea 100%); color: #fff;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif; }
   #stage { position: fixed; inset: 0; overflow: hidden; }
   #bgvideo, #bgimg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: none; }
@@ -312,10 +329,10 @@
   body.light .moremenu button { color: #171a20; }
   body.light .moremenu button:hover { background: rgba(0,0,0,.06); }
   /* ===== 应用菜单（网格面板） ===== */
-  .appmenu { position: fixed; inset: 0; z-index: 70; display: none; align-items: center; justify-content: center;
+  .appmenu { position: fixed; inset: 0; z-index: 95; display: none; align-items: center; justify-content: center;
     background: rgba(8, 10, 16, .42); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
   .appmenu.on { display: flex; }
-  .am-panel { width: min(1080px, 92vw); height: auto; max-height: 86vh; display: flex; flex-direction: column;
+  .am-panel { width: min(1080px, 92vw); height: 86vh; max-height: 86vh; display: flex; flex-direction: column;
     border-radius: 20px; overflow: hidden; background: rgba(26, 28, 36, .95);
     border: 1px solid rgba(255, 255, 255, .12); box-shadow: 0 30px 90px rgba(0, 0, 0, .55); }
   body.light .am-panel { background: rgba(250, 251, 253, .97); border-color: rgba(0, 0, 0, .1); box-shadow: 0 30px 80px rgba(0, 0, 0, .22); }
@@ -327,20 +344,36 @@
   .am-close { width: 36px; height: 36px; border-radius: 10px; border: 0; cursor: pointer; font-size: 18px;
     background: rgba(255,255,255,.1); color: #e9ecf1; }
   body.light .am-close { background: rgba(0,0,0,.06); color: #171a20; }
-  .am-scroll { flex: 1; overflow-y: auto; padding: 16px 20px 24px; max-height: calc(86vh - 74px); }
+  .am-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 16px 20px 24px; }
   .am-sec { font-size: 13px; color: #9aa4b4; margin: 6px 2px 12px; letter-spacing: .5px; }
   body.light .am-sec { color: #6b7280; }
   .am-act { margin-left: 10px; padding: 3px 10px; font-size: 12px; border-radius: 999px; border: 1px solid rgba(255,255,255,.18); background: rgba(255,255,255,.08); color: inherit; cursor: pointer; }
   body.light .am-act { border-color: rgba(0,0,0,.12); background: rgba(0,0,0,.05); }
   .am-act:hover { background: rgba(255,255,255,.18); }
   .am-item.bm::after { content: "+"; position: absolute; right: 6px; top: 4px; font-size: 15px; opacity: .45; }
+  .am-dock { flex: 0 0 auto; border-top: 1px solid rgba(255,255,255,.09); padding: 10px 20px 14px; max-height: 34vh; overflow-y: auto; }
+  body.light .am-dock { border-top-color: rgba(0,0,0,.07); }
+  .am-dock .am-sec { margin: 2px 2px 8px; }
+  .am-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 2px 14px; }
+  .am-tab { padding: 5px 12px; border-radius: 999px; border: 1px solid rgba(255,255,255,.16); background: rgba(255,255,255,.06); color: inherit; font-size: 12.5px; cursor: pointer; }
+  .am-tab:hover { background: rgba(255,255,255,.14); }
+  body.light .am-tab { border-color: rgba(0,0,0,.1); background: rgba(0,0,0,.04); }
+  .am-tab.on { background: #3b82f6; border-color: #3b82f6; color: #fff; }
+  .am-folder { display: flex; align-items: center; gap: 8px; padding: 7px 10px; margin: 2px 0 6px; border-radius: 9px; cursor: pointer; font-size: 13px; color: inherit; }
+  .am-folder:hover { background: rgba(255,255,255,.08); }
+  body.light .am-folder:hover { background: rgba(0,0,0,.05); }
+  .am-folder .chev { width: 14px; opacity: .55; font-size: 10px; transform: scale(.9); }
+  .am-folder .fname { flex: 1; text-align: left; }
+  .am-folder .cnt { font-size: 11.5px; opacity: .5; }
+  .am-sub { font-size: 12px; color: #8f99a9; margin: 4px 2px 8px; letter-spacing: .4px; }
+  body.light .am-sub { color: #77808f; }
   .am-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px 10px; margin-bottom: 22px; }
   .am-item { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 12px 6px 10px;
     border-radius: 12px; cursor: pointer; text-decoration: none; color: #e7ecf4; transition: background .12s; }
   .am-item:hover { background: rgba(255,255,255,.09); }
   body.light .am-item { color: #1f2430; }
   body.light .am-item:hover { background: rgba(0,0,0,.055); }
-  .am-item img, .am-item .ph { width: 46px; height: 46px; border-radius: 12px; object-fit: contain; }
+  .am-item img, .am-item .ph { width: 46px; height: 46px; border-radius: 12px; object-fit: contain; image-rendering: -webkit-optimize-contrast; }
   .am-item .ph { display: grid; place-items: center; font-size: 19px; font-weight: 600;
     background: rgba(255,255,255,.16); color: #dfe6f1; border-radius: 12px; }
   .am-item span { font-size: 12.5px; text-align: center; line-height: 1.3; max-width: 100%;
@@ -572,7 +605,11 @@
     60%  { transform: translateY(-2px) scale(1.004); opacity: 1; }
     to   { transform: translateY(0) scale(1); opacity: 1; }
   }
-</style>
+
+  /* 首屏防黑闪：跟随系统深浅 */
+  @media (prefers-color-scheme: dark) { body { background: #10131a; } }
+  @media (prefers-color-scheme: light) { body { background: linear-gradient(135deg, #e9eef5 0%, #e4e9f1 45%, #efe7ea 100%); } }
+  </style>
 </head>
 <body>
 <div id="stage">
@@ -611,13 +648,12 @@
         <button class="am-close" id="amClose">×</button>
       </div>
       <div class="am-scroll" id="amScroll">
-        <div class="am-sec">已添加</div>
-        <div class="am-grid" id="amGridMine"></div>
-        <div class="am-sec">Dock 快捷方式</div>
-        <div class="am-grid" id="amGridDock"></div>
-        <div class="am-sec">浏览器书签（点一下加入 Dock）<button class="am-act" id="amImportAll">全部加入</button></div>
-        <div class="am-grid" id="amGridBm"></div>
-      </div>
+        <div class="am-sec">已添加（自动收录浏览器书签，右键可加入 Dock）<button class="am-act" id="amSync" title="重新读取收藏夹">同步书签</button><span id="amStat" style="margin-left:10px;font-size:11.5px;opacity:.55"></span></div>
+        <div id="amMineWrap"></div></div>
+        <div class="am-dock">
+          <div class="am-sec">Dock 快捷方式</div>
+          <div class="am-grid" id="amGridDock"></div>
+        </div>
     </div>
   </div>
   <div class="ctxmenu" id="ctxmenu"></div>
@@ -642,7 +678,7 @@
         <a data-t="s-dl"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v10.5"/><path d="M7.8 10.6L12 14.8l4.2-4.2"/><path d="M4.5 19.5h15"/></svg></span>下载接管</a>
         <a data-t="s-data"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.6 8.2a2 2 0 012-2h3.8l2 2.4h7a2 2 0 012 2v6.6a2 2 0 01-2 2H5.6a2 2 0 01-2-2z"/><path d="M3.6 11.4h16.8"/></svg></span>快捷方式与数据</a>
       </nav>
-      <div class="pnl-foot">本机存储 · build 267</div>
+      <div class="pnl-foot">本机存储 · build 303</div>
     </aside>
     <main class="pnl-main" id="pnlMain">
       <button class="pnl-x" id="pnlClose" title="关闭">&#10005;</button>
@@ -731,11 +767,6 @@
       <input type="url" id="newUrl" placeholder="https://example.com" style="flex:1"><button id="add">添加</button>
     </div>
     <div id="ex-data"></div>
-      <div class="row" style="margin-top:10px">
-        <button id="bmBar">导入书签栏</button>
-        <button id="bmAll">导入全部书签</button>
-        <span id="bmTip" style="font-size:12px;opacity:.6"></span>
-      </div>
     <div class="row" style="margin-top:14px">
       <button id="refetchIcons">重新抓取图标</button>
       <button id="exportCfg">导出配置</button><button id="importCfg">导入配置</button>

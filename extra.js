@@ -733,10 +733,63 @@
     return true;
   }
 
+  var HD_CANDS = ["/apple-touch-icon.png", "/apple-touch-icon-precomposed.png", "/favicon.ico"];
+  function hdKey(url) { try { return "hi:" + new URL(url).hostname; } catch (e) { return ""; } }
+  function blobToDataUrl(b) {
+    return new Promise(function (res, rej) {
+      var fr = new FileReader();
+      fr.onload = function () { res(fr.result); };
+      fr.onerror = rej;
+      fr.readAsDataURL(b);
+    });
+  }
+  function fetchWithTimeout(u, ms) {
+    return new Promise(function (res, rej) {
+      var done = false;
+      var timer = setTimeout(function () { if (!done) { done = true; rej(new Error("timeout")); } }, ms);
+      fetch(u, { cache: "force-cache", credentials: "omit" }).then(function (r) {
+        if (!r.ok) throw new Error("http " + r.status);
+        return r.blob();
+      }).then(function (b) {
+        if (done) return;
+        done = true; clearTimeout(timer); res(b);
+      }, function (e) {
+        if (done) return;
+        done = true; clearTimeout(timer); rej(e);
+      });
+    });
+  }
+  function upgradeIcon(img, url) {
+    var key = hdKey(url);
+    if (!key) return;
+    var apply = function (dataUrl) {
+      if (!dataUrl) return;
+      var probe = new Image();
+      probe.onload = function () { if (probe.naturalWidth > (img.naturalWidth || 0)) img.src = dataUrl; };
+      probe.src = dataUrl;
+    };
+    SP.idbGet(key).then(function (cached) { if (cached) { apply(cached); return; } }, function () {});
+    (function tryNext(i) {
+      if (i >= HD_CANDS.length) return;
+      var host = key.slice(3);
+      fetchWithTimeout("https://" + host + HD_CANDS[i], 1600).then(blobToDataUrl).then(function (dataUrl) {
+        if (!dataUrl) throw new Error("empty");
+        SP.idbPut(key, dataUrl);
+        apply(dataUrl);
+      }).catch(function () { tryNext(i + 1); });
+    })(0);
+  }
+
   function iconFor(url) {
     for (var i = 0; i < (S.shortcuts || []).length; i++) {
       if (S.shortcuts[i].url === url && S.shortcuts[i].icon) return S.shortcuts[i].icon;
     }
+    // 优先用浏览器自带的收藏夹图标缓存（需要 favicon 权限）
+    try {
+      if (window.chrome && chrome.runtime && chrome.runtime.getURL && /^https?:/i.test(url)) {
+        return chrome.runtime.getURL("/_favicon/?pageUrl=" + encodeURIComponent(url) + "&size=128");
+      }
+    } catch (e) {}
     var h = SP.hostOf(url);
     return h ? ("https://" + h + "/favicon.ico") : "";
   }
@@ -796,6 +849,7 @@
       var im = document.createElement("img");
       im.src = icon;
       im.onerror = function () { var d = document.createElement("div"); d.className = "ph"; d.textContent = (name || "?").slice(0, 1); this.replaceWith(d); };
+      im.onload = function () { try { if (im.naturalWidth && im.naturalWidth < 64) upgradeIcon(im, url); } catch (e) {} };
       a.appendChild(im);
     } else {
       var ph = document.createElement("div");
@@ -813,6 +867,7 @@
     gridEl.innerHTML = "";
     list.forEach(function (it, idx) {
       var node = amItem(it.name, it.url, iconOf ? iconOf(it) : "");
+      node.dataset.url = it.url;
       node.style.setProperty("--i", idx);
       gridEl.appendChild(node);
     });
@@ -824,107 +879,244 @@
     }
   }
 
-  var bmCache = null, bmLoading = false;
+  var bmInited = false;
   function normU(u) { try { var x = new URL(u); return (x.origin + x.pathname.replace(/\/$/, "") + x.search).toLowerCase(); } catch (e) { return String(u || "").toLowerCase(); } }
   function hasUrl(u) {
     var k = normU(u);
     return (S.shortcuts || []).some(function (s) { return normU(s.url) === k; });
   }
-  function loadBookmarks(cb) {
-    if (bmCache) { cb(bmCache); return; }
-    if (!(window.chrome && chrome.bookmarks && chrome.bookmarks.getTree)) { bmCache = []; cb(bmCache); return; }
-    if (bmLoading) return;
-    bmLoading = true;
+  function hasMenuUrl(u) {
+    var k = normU(u);
+    return (S.menuLinks || []).some(function (s) { return normU(s.url) === k; });
+  }
+  function showCtx(ev, items) {
+    var menu = $("ctxmenu");
+    if (!menu) return;
+    ev.preventDefault();
+    menu.innerHTML = "";
+    items.forEach(function (it) {
+      var b = document.createElement("button");
+      b.textContent = it[0];
+      if (it[2]) b.className = "danger";
+      b.onclick = function () { menu.classList.remove("on"); it[1](); };
+      menu.appendChild(b);
+    });
+    menu.style.left = Math.min(ev.clientX, window.innerWidth - 190) + "px";
+    menu.style.top = Math.min(ev.clientY, window.innerHeight - 260) + "px";
+    menu.style.zIndex = "120";   // 菜单面板 z-index 70，右键菜单要盖在它上面
+    menu.classList.add("on");
+  }
+
+  // 自动把浏览器书签导入菜单栏；用户删掉的会记进 bmSkip，不再自动加回
+  function autoBookmarksIntoMenu(cb) {
+    if (!(window.chrome && chrome.bookmarks && chrome.bookmarks.getTree)) { if (cb) cb(0); return; }
     chrome.bookmarks.getTree(function (tree) {
       var out = [];
-      function walk(n) {
+      function walk(n, path) {
         if (!n) return;
-        if (n.url && /^https?:/i.test(n.url)) out.push({ name: (n.title || "").trim() || n.url, url: n.url });
-        (n.children || []).forEach(walk);
+        if (n.url && /^https?:/i.test(n.url)) {
+          out.push({ node: n, dir: path.length ? path.join(" / ") : "收藏夹栏" });
+          return;
+        }
+        var p = path;
+        if (n.id === "1") p = ["收藏夹栏"];
+        else if (n.id === "2") p = ["其他收藏夹"];
+        else if (n.title) p = path.concat(n.title);
+        (n.children || []).forEach(function (c) { walk(c, p); });
       }
-      ((tree && tree[0] && tree[0].children) || []).forEach(walk);
-      bmCache = out;
-      bmLoading = false;
-      cb(out);
+      ((tree && tree[0] && tree[0].children) || []).forEach(function (c) { walk(c, []); });
+      S.menuLinks = S.menuLinks || [];
+      var skip = S.bmSkip || [];
+      var seen = {};
+      S.menuLinks.forEach(function (m) { seen[normU(m.url)] = 1; });
+      skip.forEach(function (u) { seen[u] = 1; });
+      var added = 0, changedDir = 0, cap = 500;
+      // 已有条目也要更新所在分类（早期版本导入的没有 dir 或分类已变）
+      var byUrl = {};
+      S.menuLinks.forEach(function (m) { byUrl[normU(m.url)] = m; });
+      out.forEach(function (item) {
+        var n = item.node;
+        var k = normU(n.url);
+        var dir = item.dir || "收藏夹栏";
+        if (byUrl[k]) {
+          if (byUrl[k].dir !== dir) { byUrl[k].dir = dir; changedDir++; }
+          return;
+        }
+        if (added >= cap) return;
+        seen[k] = 1;
+        var nm = (n.title || "").trim().slice(0, 40);
+        if (!nm) { try { nm = new URL(n.url).hostname.replace(/^www\./, ""); } catch (e) { nm = "书签"; } }
+        var obj = { name: nm, url: n.url, fromBookmark: true, dir: dir };
+        S.menuLinks.push(obj);
+        byUrl[k] = obj;
+        added++;
+      });
+      if (added || changedDir) persist();
+      bmInited = true;
+      window.__bmStat = { total: out.length, added: added, fixed: changedDir, menu: (S.menuLinks || []).length, gen: Date.now() };
+      updateBmStat();
+      if (cb) cb(added);
     });
   }
-  function addShortcutFromBm(b) {
-    if (hasUrl(b.url)) { SP.toast("已经在 Dock 里了"); return; }
-    var nm = (b.name || "").trim().slice(0, 20);
-    if (!nm) { try { nm = new URL(b.url).hostname.replace(/^www\./, ""); } catch (e) { nm = "书签"; } }
-    S.shortcuts.push({ name: nm, url: b.url, fromBookmark: true });
+  function updateBmStat() {
+    var el = $("amStat");
+    if (!el) return;
+    var st = window.__bmStat;
+    if (!st) { el.textContent = ""; return; }
+    el.textContent = "收藏夹 " + st.total + " 条 · 菜单 " + st.menu + " 条";
+  }
+
+  function addDockFromMenu(l) {
+    if (hasUrl(l.url)) { SP.toast("已经在 Dock 里了"); return; }
+    S.shortcuts.push({ name: l.name, url: l.url, fromBookmark: true });
     persist(); SP.paintDock();
     try { SP.syncGlobalDock && SP.syncGlobalDock(); } catch (e) {}
     renderAppMenu(($("amSearch") && $("amSearch").value) || "");
-    SP.toast("已加入 Dock：" + nm);
-  }
-  function amBmItem(b) {
-    var a = document.createElement("a");
-    a.className = "am-item bm";
-    a.href = "#";
-    a.title = b.name + "  " + b.url;
-    var im = document.createElement("img");
-    im.src = iconFor(b.url);
-    im.onerror = function () { var d = document.createElement("div"); d.className = "ph"; d.textContent = (b.name || "?").slice(0, 1); this.replaceWith(d); };
-    a.appendChild(im);
-    var sp = document.createElement("span");
-    sp.textContent = b.name;
-    a.appendChild(sp);
-    a.onclick = function (ev) { ev.preventDefault(); ev.stopPropagation(); addShortcutFromBm(b); };
-    return a;
-  }
-  function renderBmGrid(q) {
-    var grid = $("amGridBm");
-    if (!grid) return;
-    loadBookmarks(function (list) {
-      var arr = list.filter(function (b) { return (!q || (b.name + " " + b.url).toLowerCase().indexOf(q) >= 0) && !hasUrl(b.url); });
-      grid.innerHTML = "";
-      arr.slice(0, 60).forEach(function (b, i) {
-        var n = amBmItem(b);
-        n.style.setProperty("--i", i);
-        grid.appendChild(n);
-      });
-      if (!arr.length) {
-        var d = document.createElement("div");
-        d.className = "am-empty";
-        d.textContent = hasUrl && list.length ? "书签都在 Dock 里了" : "没有可导入的书签";
-        grid.appendChild(d);
-      }
-      var btn = $("amImportAll");
-      if (btn) btn.style.display = arr.length ? "" : "none";
-      $("amGridBm").__arr = arr;
-    });
+    SP.toast("已加入 Dock：" + l.name);
   }
 
   function renderAppMenu(filter) {
     var q = (filter || "").trim().toLowerCase();
     var mine = (S.menuLinks || []).filter(function (l) { return !q || (l.name + " " + l.url).toLowerCase().indexOf(q) >= 0; });
     var dock = (S.shortcuts || []).filter(function (s) { return !q || (s.name + " " + s.url).toLowerCase().indexOf(q) >= 0; });
-    fillGrid($("amGridMine"), mine, function (l) { return iconFor(l.url); });
+    renderMineGrouped(mine);
     fillGrid($("amGridDock"), dock, function (s) { return s.icon || iconFor(s.url); });
-    renderBmGrid(q);
+    bindMenuCtx();
   }
 
-  function bindAmImportAll() {
-    var btn = $("amImportAll");
-    if (!btn || btn.__on) return;
-    btn.__on = true;
-    btn.onclick = function (ev) {
-      ev.stopPropagation();
-      var grid = $("amGridBm");
-      var arr = (grid && grid.__arr) || [];
-      if (!arr.length) { SP.toast("没有可导入的书签"); return; }
-      var n = 0;
-      arr.forEach(function (b) { if (!hasUrl(b.url)) { addOneSilent(b); n++; } });
-      persist(); SP.paintDock();
-      try { SP.syncGlobalDock && SP.syncGlobalDock(); } catch (e) {}
-      renderAppMenu(($("amSearch") && $("amSearch").value) || "");
-      SP.toast("已加入 " + n + " 个书签到 Dock");
-    };
+  var amTab = "收藏夹栏";
+  function renderMineGrouped(list) {
+    var wrap = $("amMineWrap");
+    if (!wrap) return;
+    var q = (($("amSearch") && $("amSearch").value) || "").trim().toLowerCase();
+    var filtering = !!q;
+
+    // 所有分类（按路径字符串去重），收藏夹栏排最前
+    var dirs = [], seenDir = {};
+    list.forEach(function (l) {
+      var d = l.dir || "收藏夹栏";
+      if (!seenDir[d]) { seenDir[d] = 1; dirs.push(d); }
+    });
+    // 收藏夹栏置顶，其余保持收藏夹里的原始顺序
+    var barIdx = dirs.indexOf("收藏夹栏");
+    if (barIdx > 0) { dirs.splice(barIdx, 1); dirs.unshift("收藏夹栏"); }
+    if (dirs.indexOf(amTab) < 0) amTab = dirs[0] || "收藏夹栏";
+
+    function tabLabel(d) {
+      if (d === "收藏夹栏") return "收藏夹栏";
+      if (d.indexOf("收藏夹栏 / ") === 0) return d.slice(7);
+      return d;
+    }
+    wrap.innerHTML = "";
+
+    // 顶部一行分类
+    var tabs = document.createElement("div");
+    tabs.className = "am-tabs";
+    dirs.forEach(function (d) {
+      var n = list.filter(function (l) { return (l.dir || "收藏夹栏") === d; }).length;
+      var b = document.createElement("button");
+      b.className = "am-tab" + (!filtering && d === amTab ? " on" : "");
+      b.textContent = tabLabel(d) + " " + n;
+      b.onclick = function (ev) {
+        ev.stopPropagation();
+        amTab = d;
+        renderMineGrouped(list);
+        bindMenuCtx();
+      };
+      tabs.appendChild(b);
+    });
+    wrap.appendChild(tabs);
+
+    // 内容：搜索时跨分类显示，否则只显示当前分类
+    var items = list.filter(function (l) {
+      var d = l.dir || "收藏夹栏";
+      if (filtering) return true;
+      return d === amTab;
+    });
+    if (items.length) {
+      var g = document.createElement("div");
+      g.className = "am-grid";
+      fillGrid(g, items, function (l) { return iconFor(l.url); });
+      wrap.appendChild(g);
+    } else {
+      var empty = document.createElement("div");
+      empty.className = "am-empty";
+      empty.textContent = "这个分类下没有网站";
+      wrap.appendChild(empty);
+    }
   }
-  function addOneSilent(b) {
-    var nm = (b.name || "").trim().slice(0, 20) || "书签";
-    S.shortcuts.push({ name: nm, url: b.url, fromBookmark: true });
+
+  function bindMenuCtx() {
+    var grid = $("amMineWrap");
+    if (!grid) return;
+    Array.prototype.forEach.call(grid.querySelectorAll(".am-item"), function (a) {
+      if (a.__ctx) return;
+      a.__ctx = true;
+      a.addEventListener("contextmenu", function (ev) {
+        var url = a.dataset.url, l = null, idx = -1;
+        (S.menuLinks || []).forEach(function (m, k) { if (m.url === url) { l = m; idx = k; } });
+        if (!l) return;
+        showCtx(ev, [
+          ["打开链接", function () { location.href = l.url; }],
+          ["加入 Dock", function () { addDockFromMenu(l); }],
+          ["从菜单移除", function () {
+            var removed = S.menuLinks.splice(idx, 1)[0];
+            S.bmSkip = S.bmSkip || [];
+            if (removed && removed.fromBookmark) S.bmSkip.push(normU(removed.url));
+            persist();
+            renderAppMenu(($("amSearch") && $("amSearch").value) || "");
+            SP.toast("已从菜单移除（不会再自动导入）");
+          }, true]
+        ]);
+      });
+    });
+  }
+
+  // 启动即同步一次，之后书签有增减也自动更新菜单
+  setTimeout(function () { try { autoBookmarksIntoMenu(); } catch (e) {} }, 1200);
+  try {
+    if (window.chrome && chrome.bookmarks && chrome.bookmarks.onCreated) {
+      var bmTimer = null;
+      var bmSync = function () {
+        clearTimeout(bmTimer);
+        bmTimer = setTimeout(function () {
+          autoBookmarksIntoMenu(function (n) {
+            if (n && $("appmenu") && $("appmenu").classList.contains("on")) renderAppMenu(($("amSearch") && $("amSearch").value) || "");
+          });
+        }, 800);
+      };
+      chrome.bookmarks.onCreated.addListener(bmSync);
+      chrome.bookmarks.onRemoved.addListener(bmSync);
+      chrome.bookmarks.onChanged.addListener(bmSync);
+      if (chrome.bookmarks.onMoved) chrome.bookmarks.onMoved.addListener(bmSync);
+      if (chrome.bookmarks.onImportEnded) chrome.bookmarks.onImportEnded.addListener(bmSync);
+      var bmFocusTimer = null;
+      var bmFocusSync = function () {
+        clearTimeout(bmFocusTimer);
+        bmFocusTimer = setTimeout(function () {
+          autoBookmarksIntoMenu(function (n) {
+            if (n) {
+              if ($("appmenu") && $("appmenu").classList.contains("on")) renderAppMenu(($("amSearch") && $("amSearch").value) || "");
+              SP.toast("已同步 " + n + " 个新书签");
+            }
+          });
+        }, 1200);
+      };
+      window.addEventListener("focus", bmFocusSync);
+    }
+  } catch (e) {}
+
+  function bindSyncBtn() {
+    var b = $("amSync");
+    if (!b || b.__on) return;
+    b.__on = true;
+    b.onclick = function (ev) {
+      ev.stopPropagation();
+      autoBookmarksIntoMenu(function (n) {
+        renderAppMenu(($("amSearch") && $("amSearch").value) || "");
+        SP.toast(n ? ("已导入 " + n + " 个新书签") : "书签已是最新");
+      });
+    };
   }
 
   function openAppMenu() {
@@ -932,13 +1124,30 @@
     if (!box) return;
     var m = $("moremenu");
     if (m) m.classList.remove("on");
-    bindAmImportAll();
+    bindSyncBtn();
+    updateBmStat();
     renderAppMenu("");
+    autoBookmarksIntoMenu(function (n) { if (n) renderAppMenu(($("amSearch") && $("amSearch").value) || ""); });
     var inp = $("amSearch");
     if (inp) inp.value = "";
     box.classList.add("on");
     setTimeout(function () { if (inp) inp.focus(); }, 60);
   }
+  window.__openAppMenu = openAppMenu;
+  try {
+    if (window.chrome && chrome.runtime && chrome.runtime.onMessage) {
+      chrome.runtime.onMessage.addListener(function (m) {
+        if (m && m.type === "sp-open-menu") { try { openAppMenu(); } catch (e) {} }
+      });
+    }
+  } catch (e) {}
+  (function hashMenu() {
+    try {
+      if (location.hash.indexOf("menu") < 0) return;
+      setTimeout(function () { try { openAppMenu(); history.replaceState(null, "", location.pathname); } catch (e) {} }, 900);
+    } catch (e) {}
+  })();
+
   function closeAppMenu() {
     var box = $("appmenu");
     if (!box || !box.classList.contains("on") || box.classList.contains("closing")) return;
@@ -1135,7 +1344,7 @@
     add("ex-dock", mkRow("快捷键",
       (function () {
         var b = document.createElement("button");
-        b.textContent = "修改 Alt+Shift+D";
+        b.textContent = "修改 Alt+J";
         b.onclick = function () { window.open("edge://extensions/shortcuts", "_blank"); };
         return b;
       })()
