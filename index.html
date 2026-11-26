@@ -615,6 +615,26 @@
   .pfx-chip b { font-family:Consolas,Monaco,monospace; color:#8fb4ff; font-weight:600; }
   body.light .pfx-chip { background:rgba(0,0,0,.04); border-color:rgba(0,0,0,.08); color:#3c4350; }
   body.light .pfx-chip b { color:#2f6fed; }
+  
+  form.search { position: relative; }
+  .clipbtn { position:absolute; right:10px; top:50%; transform:translateY(-50%); width:32px; height:32px; padding:6px; border-radius:9px; border:0; background:rgba(255,255,255,.10); color:#cfd6df; cursor:pointer; display:grid; place-items:center; transition:background .15s; }
+  .clipbtn:hover { background:rgba(255,255,255,.20); color:#fff; }
+  .clipbtn svg { width:100%; height:100%; }
+  form.search input { padding-right:48px; }
+  .clippanel { position:fixed; display:none; z-index:82; max-height:360px; overflow:hidden; background:rgba(24,27,34,.97); border:1px solid rgba(255,255,255,.12); border-radius:14px; box-shadow:0 18px 50px rgba(0,0,0,.35); backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px); color:#e9ecf1; font-family:"Microsoft YaHei UI",system-ui,sans-serif; }
+  .clippanel.on { display:flex; flex-direction:column; }
+  .cp-head { display:flex; justify-content:space-between; align-items:center; padding:10px 12px; font-size:12px; color:#9aa3b0; border-bottom:1px solid rgba(255,255,255,.08); }
+  .cp-clear { cursor:pointer; color:#8fb4ff; }
+  .cp-list { overflow-y:auto; padding:6px; }
+  .cp-item { padding:8px 10px; border-radius:9px; cursor:pointer; display:flex; gap:10px; align-items:flex-start; }
+  .cp-item:hover { background:rgba(255,255,255,.08); }
+  .cp-tx { flex:1; font-size:12.5px; line-height:1.45; max-height:3.2em; overflow:hidden; word-break:break-all; }
+  .cp-tm { flex:none; font-size:11px; color:#7f8899; }
+  .cp-empty { padding:18px 12px; font-size:12px; color:#8d96a5; text-align:center; }
+  .cp-foot { padding:8px 12px; font-size:11px; color:#7f8899; border-top:1px solid rgba(255,255,255,.08); }
+  body.light .clippanel { background:rgba(252,252,253,.98); color:#1f2430; border-color:rgba(0,0,0,.10); }
+  body.light .cp-head, body.light .cp-foot { color:#8a93a3; border-color:rgba(0,0,0,.08); }
+  body.light .cp-item:hover { background:rgba(0,0,0,.05); }
   </style>
 </head>
 <body>
@@ -628,9 +648,10 @@
       <div class="searchwrap">
       <form class="search" id="sf">
         <span class="eng" id="engBtn" title="点击切换搜索引擎">必应</span>
-        <input id="q" type="text" autocomplete="off" spellcheck="false" placeholder="搜索，或输入网址">
+        <input id="q" type="text" autocomplete="off" spellcheck="false" placeholder="搜索，或输入网址"><button class="clipbtn" id="clipBtn" type="button" title="剪贴板历史（类似 Win+V）"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4.5" width="12" height="16" rx="2.2"/><path d="M9.5 4.5V3.4h5v1.1"/><path d="M9 9.5h6M9 13h6M9 16.5h4"/></svg></button>
       </form>
       <div class="sug" id="sug"></div>
+      <div class="clippanel" id="clipPanel"><div class="cp-head"><span>剪贴板历史</span><span class="cp-clear" id="clipClear">清空</span></div><div class="cp-list" id="clipList"></div><div class="cp-foot">在浏览器窗口聚焦时自动捕获，最多保留 20 条</div></div>
       </div>
     </div>
     <div class="center">
@@ -684,7 +705,7 @@
         <a data-t="s-dl"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v10.5"/><path d="M7.8 10.6L12 14.8l4.2-4.2"/><path d="M4.5 19.5h15"/></svg></span>下载接管</a>
         <a data-t="s-data"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.6 8.2a2 2 0 012-2h3.8l2 2.4h7a2 2 0 012 2v6.6a2 2 0 01-2 2H5.6a2 2 0 01-2-2z"/><path d="M3.6 11.4h16.8"/></svg></span>快捷方式与数据</a>
       </nav>
-      <div class="pnl-foot">本机存储 · build 319</div>
+      <div class="pnl-foot">本机存储 · build 320</div>
     </aside>
     <main class="pnl-main" id="pnlMain">
       <button class="pnl-x" id="pnlClose" title="关闭">&#10005;</button>

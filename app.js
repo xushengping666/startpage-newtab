@@ -1029,6 +1029,87 @@
     if (el) el.classList.add("on");
   }
 
+  function fmtClipTime(ts) {
+    try {
+      var d = new Date(ts || 0), n = new Date();
+      var hm = ("0" + d.getHours()).slice(-2) + ":" + ("0" + d.getMinutes()).slice(-2);
+      if (d.toDateString() === n.toDateString()) return hm;
+      return (d.getMonth() + 1) + "/" + d.getDate() + " " + hm;
+    } catch (e) { return ""; }
+  }
+  function closeClipPanel() {
+    var p = document.getElementById("clipPanel");
+    if (p) p.classList.remove("on");
+  }
+  function insertClipText(t) {
+    var q = document.getElementById("q");
+    if (!q) return;
+    var s = q.selectionStart == null ? q.value.length : q.selectionStart;
+    var e2 = q.selectionEnd == null ? q.value.length : q.selectionEnd;
+    q.value = q.value.slice(0, s) + t + q.value.slice(e2);
+    var pos = s + t.length;
+    q.focus();
+    try { q.setSelectionRange(pos, pos); } catch (e) {}
+    q.dispatchEvent(new Event("input", { bubbles: true }));
+    closeClipPanel();
+    toast("已粘贴");
+  }
+  function renderClipPanel() {
+    var list = document.getElementById("clipList");
+    if (!list) return;
+    try {
+      chrome.storage.local.get("spClipHist", function (r) {
+        var arr = (r && r.spClipHist) || [];
+        list.innerHTML = "";
+        if (!arr.length) {
+          var empty = document.createElement("div");
+          empty.className = "cp-empty";
+          empty.textContent = "还没有记录。复制文字后会自动出现在这里。";
+          list.appendChild(empty);
+          return;
+        }
+        arr.forEach(function (it) {
+          var row = document.createElement("div");
+          row.className = "cp-item";
+          var tx = document.createElement("div"); tx.className = "cp-tx"; tx.textContent = it.t;
+          var tm = document.createElement("div"); tm.className = "cp-tm"; tm.textContent = fmtClipTime(it.at);
+          row.appendChild(tx); row.appendChild(tm);
+          row.onclick = function () { insertClipText(it.t); };
+          list.appendChild(row);
+        });
+      });
+    } catch (e) {}
+  }
+  function openClipPanel() {
+    var btn = document.getElementById("clipBtn");
+    var p = document.getElementById("clipPanel");
+    var q = document.getElementById("q");
+    if (!p || !btn || !q) return;
+    var r = btn.getBoundingClientRect();
+    var width = Math.max(300, Math.min(420, Math.round(r.right - q.getBoundingClientRect().left)));
+    p.style.width = width + "px";
+    p.style.left = Math.max(12, Math.round(r.right - width)) + "px";
+    p.style.top = Math.round(r.bottom + 8) + "px";
+    p.classList.add("on");
+    renderClipPanel();
+  }
+  function captureClip() {
+    try {
+      if (S && S.clipHistory === false) return;
+      if (!document.hasFocus()) return;
+      if (!navigator.clipboard || !navigator.clipboard.readText) return;
+      navigator.clipboard.readText().then(function (t) {
+        t = String(t || "");
+        if (!t.trim()) return;
+        try { chrome.runtime.sendMessage({ type: "sp-clip-item", text: t }); } catch (e) {}
+      }, function () {});
+    } catch (e) {}
+  }
+  function setClipWatch(on) {
+    try { chrome.storage.local.set({ spClipEnabled: !!on }); } catch (e) {}
+    if (on) setTimeout(captureClip, 400);
+  }
+
   function installPasteMenu(input) {
     if (!input) return;
     input.addEventListener("contextmenu", function (ev) {
@@ -1445,6 +1526,39 @@
   document.getElementById("mVid").onclick = function () { S.bgMode = "video"; save(); render(); };
 
   installPasteMenu(document.getElementById("q"));
+  (function bindClipUI() {
+    var btn = document.getElementById("clipBtn");
+    var panel = document.getElementById("clipPanel");
+    var clear = document.getElementById("clipClear");
+    if (!btn || !panel) return;
+    btn.onclick = function (ev) {
+      ev.preventDefault(); ev.stopPropagation();
+      if (panel.classList.contains("on")) { closeClipPanel(); return; }
+      captureClip();
+      setTimeout(openClipPanel, 250);
+    };
+    if (clear) clear.onclick = function (ev) {
+      ev.stopPropagation();
+      try { chrome.runtime.sendMessage({ type: "sp-clip-clear" }, function () { renderClipPanel(); }); } catch (e) {}
+    };
+    document.addEventListener("pointerdown", function (ev) {
+      if (!panel.classList.contains("on")) return;
+      var path = ev.composedPath ? ev.composedPath() : [];
+      if (path.indexOf(panel) >= 0 || path.indexOf(btn) >= 0) return;
+      closeClipPanel();
+    }, true);
+    try {
+      chrome.storage.onChanged.addListener(function (ch) {
+        if (ch.spClipHist && panel.classList.contains("on")) renderClipPanel();
+      });
+    } catch (e) {}
+    setTimeout(function () { setClipWatch(S.clipHistory !== false); }, 800);
+    window.addEventListener("focus", captureClip);
+    document.addEventListener("visibilitychange", function () { if (!document.hidden) captureClip(); });
+    var qEl2 = document.getElementById("q");
+    if (qEl2) qEl2.addEventListener("focus", captureClip);
+    setTimeout(captureClip, 1500);
+  })();
   document.getElementById("engBtn").onclick = function () {
     S.engine = S.engine === "bing" ? "baidu" : "bing"; save(); paintEngine();
   };
@@ -2341,7 +2455,7 @@
     save: save, render: render, paintDock: paintDock, paintClock: paintClock, applyTheme: applyTheme,
     applyBackground: applyBackground, applyColors: applyColors,
     toast: toast, hostOf: hostOf, openPanel: openPanel,
-    setImageFile: setImageFile, setVideoFile: setVideoFile,
+    setImageFile: setImageFile, setVideoFile: setVideoFile, setClipWatch: setClipWatch, closeClipPanel: closeClipPanel,
     idbGet: idbGet, idbPut: idbPut, idbDel: idbDel,
     DEF: DEF, refreshContrast: refreshContrast, pickIcon: pickIcon
   };

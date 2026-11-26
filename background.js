@@ -401,3 +401,28 @@ try {
     return true;
   });
 } catch (e) {}
+
+/* ---------------- 剪贴板历史（窗口聚焦时捕获，存入 storage） ---------------- */
+function pushClipItem(text) {
+  text = String(text || "").slice(0, 2000);
+  if (!text.trim()) return;
+  try {
+    chrome.storage.local.get("spClipHist", function (r) {
+      var list = (r && r.spClipHist) || [];
+      if (list[0] && list[0].t === text) return;
+      list = [{ t: text, at: Date.now() }].concat(list.filter(function (x) { return x.t !== text; })).slice(0, 20);
+      chrome.storage.local.set({ spClipHist: list });
+    });
+  } catch (e) {}
+}
+try {
+  chrome.runtime.onMessage.addListener(function (m, sender, sendResponse) {
+    if (!m) return;
+    if (m.type === "sp-clip-item") { pushClipItem(m.text); return; }
+    if (m.type === "sp-clip-clear") {
+      try { chrome.storage.local.set({ spClipHist: [] }); } catch (e) {}
+      sendResponse && sendResponse({ ok: true });
+      return true;
+    }
+  });
+} catch (e) {}

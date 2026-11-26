@@ -10,7 +10,7 @@
     showSeconds: true, blinkColon: true, showLunar: true,
     showWeather: true, city: "", wcache: null, fgWeather: "", memSave: true, glassMode: "blur", searchStyle: "glass", searchBorder: 2, searchWeight: 400, globalDock: true, globalDockCount: 8, dockHandle: true, dlEnabled: false, dlType: "pcl", dlDir: "", dlFollowBrowser: true, dlThreads: 8, dlEndpoint: "http://127.0.0.1:6800/jsonrpc", dlToken: "",
     showNotes: true, notes: "", notesPinned: false,
-    ctxMenu: true, prefix: true, hotkeys: true, intro: true, dockLimit: 11, dockMenu: true, menuLinks: [],
+    ctxMenu: true, prefix: true, hotkeys: true, clipHistory: true, intro: true, dockLimit: 11, dockMenu: true, menuLinks: [],
     slideshow: false, slideSec: 60,
     freeLayout: false, layout: {}
   };
@@ -43,6 +43,7 @@
   }
 
   function onChange(key) {
+    if (key === "clipHistory") { try { SP.setClipWatch(S.clipHistory); } catch (e) {} }
     if (key === "dlType") { syncDlEndpoint(); try { window.__spApplyDlType && window.__spApplyDlType(); } catch (e) {} }
     applyVars();
     if (key === "showWeather" || key === "city") loadWeather(true);
@@ -1291,6 +1292,7 @@
     add("ex-search", mkRow("搜索框样式", mkChoice("searchStyle", [["glass", "玻璃（同 Dock）"], ["outline", "描边"]])));
     add("ex-search", mkRow("描边粗细", mkRange("searchBorder", 1, 6, "px", 160)));
     add("ex-search", mkRow("搜索框字重", mkChoice("searchWeight", [[300, "细"], [400, "常规"], [600, "较粗"], [700, "粗"]])));
+    add("ex-search", mkRow("剪贴板历史", mkToggle("clipHistory", "记录（类似 Win+V）")));
 
     /* ---- 外观 ---- */
     add("ex-look", mkRow("玻璃强度", mkRange("glass", 0, 40, "px")));

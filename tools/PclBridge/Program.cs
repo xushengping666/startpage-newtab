@@ -18,7 +18,7 @@ namespace PclBridge
     /// </summary>
     internal static class Program
     {
-        const int PORT = 6806;
+        static int PORT = 6806;
         static int DefaultThreads = 8;
 
         static string DetectSystemProxy()
@@ -622,6 +622,30 @@ namespace PclBridge
                     if (vk == 0) { Json(ctx, 400, new { ok = false, error = "action 需为 prev / playpause / next" }); return; }
                     MediaKey(vk);
                     Json(ctx, 200, new { ok = true, action = act });
+                    return;
+                }
+                if (path == "/clipboard/history" || path == "/api/clipboard/history")
+                {
+                    try
+                    {
+                        var res = await Windows.ApplicationModel.DataTransfer.Clipboard.GetHistoryItemsAsync();
+                        var items = new List<object>();
+                        foreach (var it in res.Items)
+                        {
+                            try
+                            {
+                                var view = it.Content;
+                                if (!view.Contains(Windows.ApplicationModel.DataTransfer.StandardDataFormats.Text)) continue;
+                                var txt = await view.GetTextAsync();
+                                if (string.IsNullOrWhiteSpace(txt)) continue;
+                                items.Add(new { text = txt.Length > 2000 ? txt.Substring(0, 2000) : txt, at = it.Timestamp.ToUnixTimeMilliseconds() });
+                            }
+                            catch { }
+                        }
+                        items.Sort((a, b) => 0);
+                        Json(ctx, 200, new { ok = true, status = res.Status.ToString(), items = items.ToArray() });
+                    }
+                    catch (Exception ex) { Json(ctx, 500, new { ok = false, error = ex.Message }); }
                     return;
                 }
                 Json(ctx, 404, new { ok = false, error = "unknown" });
