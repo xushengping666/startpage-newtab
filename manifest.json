@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "新标签页",
-  "version": "2.4.79",
+  "version": "2.5.0",
   "description": "本地运行的极简新标签页：视频/图片壁纸、搜索联想、Dock 图标放大与排序、深浅主题与自定义配色。",
   "chrome_url_overrides": {
     "newtab": "index.html"
@@ -15,7 +15,8 @@
     "notifications",
     "favicon",
     "scripting",
-    "clipboardRead"
+    "clipboardRead",
+    "tabs"
   ],
   "host_permissions": [
     "<all_urls>"
@@ -81,6 +82,18 @@
         "default": "Alt+M"
       },
       "description": "打开收藏菜单（任意页面）"
+    },
+    "save-session": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+S"
+      },
+      "description": "保存当前会话快照（所有窗口标签）"
+    },
+    "read-later": {
+      "suggested_key": {
+        "default": "Alt+R"
+      },
+      "description": "把当前网页加入稍后阅读"
     }
   }
 }

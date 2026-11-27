@@ -1260,7 +1260,9 @@
     head("浏览器快捷键（可在 edge://extensions/shortcuts 修改）");
     var cmds = [
       { label: "收藏菜单", name: "open-menu", def: "Alt + M", desc: "任意网页原地弹出收藏菜单" },
-      { label: "全局 Dock", name: "toggle-dock", def: "Alt + J", desc: "任意网页唤出底部 Dock" }
+      { label: "全局 Dock", name: "toggle-dock", def: "Alt + J", desc: "任意网页唤出底部 Dock" },
+      { label: "保存会话快照", name: "save-session", def: "Ctrl + Shift + S", desc: "任意页面保存当前所有窗口的标签" },
+      { label: "加入稍后阅读", name: "read-later", def: "Alt + R", desc: "把当前网页追加到便签" }
     ];
     var kbds = {};
     cmds.forEach(function (c) {
@@ -1310,6 +1312,7 @@
       "临时切换": "前缀后接搜索词，只对这一次生效；中文 ！ 也可以",
       "剪贴板历史": "记住最近复制过的文字（浏览器聚焦时捕获），点搜索框右侧按钮选一条粘贴",
       "垂直位置": "搜索框放顶部，或移到页面垂直居中的位置",
+      "会话快照": "保存当前所有窗口的标签页，下次打开可一键恢复（保存在本机）",
       "历史条数": "聚焦搜索框时最多显示几条历史，0 为关闭",
       "搜索框样式": "搜索框外观风格",
       "边框粗细": "搜索框描边宽度",
@@ -1328,7 +1331,7 @@
       "唱片尺寸": "左下角黑胶唱片的大小",
       "天气": "顶部天气组件开关（Open-Meteo）",
       "时钟": "中央时钟开关",
-      "便签": "右侧便签开关，内容自动保存到本机",
+      "便签": "右侧便签；分「笔记 / 稍后阅读」两个标签，Alt+R 可把当前网页收进稍后阅读",
       "便签上沿": "便签距离页面顶部的位置",
       "显示秒数": "时钟是否显示秒",
       "全局 Dock": "任意网页底部停留即可唤出 Dock（也可 Alt+J）",
@@ -1366,6 +1369,303 @@
       row.style.flexWrap = "wrap";
       row.appendChild(s);
     });
+  }
+
+  function sessPost(type, extra, cb) {
+    try {
+      chrome.runtime.sendMessage(Object.assign({ type: type }, extra || {}), function (r) {
+        void chrome.runtime.lastError;
+        cb(r || {});
+      });
+    } catch (e) { cb({}); }
+  }
+  function sessTime(t) {
+    try {
+      var d = new Date(t);
+      return (d.getMonth() + 1) + "/" + d.getDate() + " " + ("0" + d.getHours()).slice(-2) + ":" + ("0" + d.getMinutes()).slice(-2);
+    } catch (e) { return ""; }
+  }
+  var spSessions = [];
+  function updateSessBtn() {
+    sessPost("sp-session-list", {}, function (r) {
+      spSessions = (r && r.sessions) || [];
+      var wrap = document.getElementById("sessWrap");
+      var b = document.getElementById("sessBtn");
+      var more = document.getElementById("sessMore");
+      if (!wrap || !b) return;
+      var has = spSessions.length > 0;
+      wrap.classList.toggle("on", has);
+      if (more) more.classList.toggle("hidden", !has);
+      if (has) {
+        var lb = document.getElementById("sessLabel");
+        var ct = document.getElementById("sessCount");
+        if (lb) lb.textContent = "会话";
+        if (ct) ct.textContent = String(spSessions[0].total || 0);
+      }
+    });
+  }
+  function fillSessMenu() {
+    var menu = document.getElementById("sessMenu");
+    if (!menu) return;
+    menu.innerHTML = "";
+    if (!spSessions.length) {
+      var e = document.createElement("div"); e.className = "si"; e.textContent = "还没有快照"; menu.appendChild(e); return;
+    }
+    spSessions.forEach(function (s) {
+      var it = document.createElement("div"); it.className = "si";
+      var n = document.createElement("span"); n.className = "si-name";
+      n.textContent = String(s.name || "会话").replace(/\s*·\s*\d+\s*个标签\s*$/, "");
+      var m = document.createElement("small"); m.textContent = (s.total || 0) + " 个";
+      var x = document.createElement("span"); x.className = "si-x"; x.textContent = "×"; x.title = "删除该快照";
+      x.onclick = function (ev) {
+        ev.stopPropagation();
+        var sid = s.id;
+        sessPost("sp-session-delete", { id: sid }, function () {
+          spSessions = spSessions.filter(function (z) { return z.id !== sid; });
+          fillSessMenu();
+          updateSessBtn();
+        });
+      };
+      it.appendChild(n); it.appendChild(m); it.appendChild(x);
+      it.onclick = function () {
+        menu.classList.remove("on");
+        sessPost("sp-session-restore", { id: s.id }, function (res) {
+          if (!res || !res.ok) { toast(res && res.error ? res.error : "恢复失败"); return; }
+          toast("已恢复 " + (res.restored || 0) + " 个标签");
+        });
+      };
+      menu.appendChild(it);
+    });
+  }
+  function parseNoteEntries() {
+    var out = [];
+    (S.notes || "").split("\n").forEach(function (line) {
+      if (line.indexOf("📌") !== 0) return;
+      var m = /(https?:\/\/\S+)/.exec(line);
+      if (!m) return;
+      var title = line.replace(/^📌\s*/, "").replace(m[1], "").trim() || m[1];
+      out.push({ line: line, url: m[1], title: title });
+    });
+    return out;
+  }
+  function renderNoteLinks() {
+    var box = document.getElementById("noteLinks");
+    if (!box) return;
+    box.innerHTML = "";
+    var entries = parseNoteEntries();
+    if (entries.length) {
+      var hd = document.createElement("div");
+      hd.className = "note-links-hd";
+      hd.textContent = "稍后阅读（点击打开）";
+      box.appendChild(hd);
+    }
+    parseNoteEntries().forEach(function (it) {
+      var a = document.createElement("a");
+      a.className = "note-link";
+      a.href = it.url; a.target = "_blank"; a.rel = "noopener";
+      var s = document.createElement("span"); s.textContent = it.title;
+      var x = document.createElement("span"); x.className = "x"; x.textContent = "×"; x.title = "从便签移除";
+      x.onclick = function (ev) { ev.preventDefault(); ev.stopPropagation(); removeNoteLine(it.line); };
+      a.appendChild(s); a.appendChild(x);
+      box.appendChild(a);
+    });
+  }
+  function noteUrlAt(box) {
+    var pos = box.selectionStart == null ? 0 : box.selectionStart;
+    var val = box.value || "";
+    var start = val.lastIndexOf("\n", pos - 1) + 1;
+    var end = val.indexOf("\n", pos);
+    var line = val.slice(start, end === -1 ? val.length : end);
+    var m = /(https?:\/\/\S+)/.exec(line);
+    return m ? m[1] : "";
+  }
+  function bindNoteOpenUrl() {
+    var box = document.getElementById("noteBox");
+    if (!box) return;
+    function openAt() {
+      var u = noteUrlAt(box);
+      if (u) { try { window.open(u, "_blank", "noopener"); } catch (e) {} return true; }
+      return false;
+    }
+    box.addEventListener("dblclick", openAt);
+    box.addEventListener("click", function (ev) { if (ev.ctrlKey || ev.metaKey) openAt(); });
+  }
+  function removeNoteLine(line) {
+    S.notes = (S.notes || "").split("\n").filter(function (l) { return l !== line; }).join("\n");
+    save();
+    var ta = document.getElementById("noteBox");
+    if (ta) ta.value = S.notes;
+    renderNoteLinks();
+    toast("已从便签移除");
+  }
+  function readPost(type, extra, cb) {
+    sessPost(type, extra, cb);
+  }
+  function renderReadList() {
+    var box = document.getElementById("readList");
+    if (!box) return;
+    readPost("sp-readlater-list", {}, function (r) {
+      var items = (r && r.items) || [];
+      box.innerHTML = "";
+      var cnt = document.getElementById("rlCount");
+      if (cnt) cnt.textContent = String(items.length);
+      if (!items.length) {
+        var em = document.createElement("div"); em.className = "rl-empty";
+        em.textContent = "还没有。任意网页按 Alt + R 加入稍后阅读。";
+        box.appendChild(em); return;
+      }
+      items.forEach(function (it) {
+        var row = document.createElement("div"); row.className = "rl-item";
+        var t = document.createElement("span"); t.className = "rl-title"; t.textContent = it.title || it.url; t.title = it.url;
+        var x = document.createElement("span"); x.className = "rl-x"; x.textContent = "×";
+        x.onclick = function (ev) {
+          ev.stopPropagation();
+          readPost("sp-readlater-remove", { id: it.id }, function () { renderReadList(); });
+        };
+        row.onclick = function () { try { window.open(it.url, "_blank", "noopener"); } catch (e) {} };
+        row.appendChild(t); row.appendChild(x);
+        box.appendChild(row);
+      });
+    });
+  }
+  function bindNoteTabs() {
+    var n1 = document.getElementById("ntNotes");
+    var n2 = document.getElementById("ntRead");
+    var notes = document.getElementById("notes");
+    if (!n1 || !n2 || !notes) return;
+    function setTab(read) {
+      notes.classList.toggle("read-mode", read);
+      n1.classList.toggle("on", !read);
+      n2.classList.toggle("on", read);
+      if (read) renderReadList();
+    }
+    n1.onclick = function () { setTab(false); };
+    n2.onclick = function () { setTab(true); };
+  }
+  function migrateNoteReadLater() {
+    var notes = S.notes || "";
+    if (notes.indexOf("📌") < 0) return;
+    var keep = [], moved = 0;
+    notes.split("\n").forEach(function (line) {
+      if (line.indexOf("📌") === 0) {
+        var m = /(https?:\/\/\S+)/.exec(line);
+        if (m) {
+          var title = line.replace(/^📌\s*/, "").replace(m[1], "").trim() || m[1];
+          readPost("sp-readlater-add", { url: m[1], title: title }, function () {});
+          moved++;
+          return;
+        }
+      }
+      keep.push(line);
+    });
+    if (moved) {
+      S.notes = keep.join("\n");
+      save();
+      var ta = document.getElementById("noteBox");
+      if (ta) ta.value = S.notes;
+    }
+  }
+  function mergeReadLaterToNotes() {
+    sessPost("sp-readlater-list", {}, function (r) {
+      var items = (r && r.items) || [];
+      if (!items.length) return;
+      var cur = S.notes || "";
+      var added = 0;
+      items.slice().reverse().forEach(function (it) {
+        if (!it || !it.url) return;
+        if (cur.indexOf(it.url) >= 0) return;
+        var line = "📌 " + (it.title || it.url) + "  " + it.url;
+        cur = (cur.trim() ? cur.replace(/\s+$/, "") + "\n" : "") + line;
+        added++;
+      });
+      if (added) {
+        S.notes = cur;
+        if (!S.showNotes) S.showNotes = true;
+        save();
+        var box = document.getElementById("notes");
+        if (box) box.classList.add("on");
+        var ta = document.getElementById("noteBox");
+        if (ta) ta.value = S.notes;
+        renderNoteLinks();
+        toast("已记录到便签：" + added + " 条");
+      }
+      sessPost("sp-readlater-clear", {}, function () {});
+    });
+  }
+  function renderSessions() {
+    var box = document.getElementById("sessList");
+    if (!box) return;
+    sessPost("sp-session-list", {}, function (r) {
+      var list = (r && r.sessions) || [];
+      box.innerHTML = "";
+      if (!list.length) {
+        var e = document.createElement("div");
+        e.className = "tip";
+        e.textContent = "还没有快照。点上面「保存当前会话」把当前所有标签存下来。";
+        box.appendChild(e);
+        return;
+      }
+      list.forEach(function (s) {
+        var row = document.createElement("div");
+        row.className = "sess-item";
+        var name = document.createElement("span");
+        name.className = "sess-name"; name.textContent = s.name || "会话";
+        var meta = document.createElement("span");
+        meta.className = "sess-meta"; meta.textContent = (s.total || 0) + " 个标签";
+        var rb = document.createElement("button");
+        rb.textContent = "恢复"; rb.onclick = function () { restoreSession(s.id); };
+        var nb = document.createElement("button");
+        nb.textContent = "重命名"; nb.onclick = function () {
+          var n = prompt("重命名快照", s.name || "会话");
+          if (n === null) return;
+          sessPost("sp-session-rename", { id: s.id, name: n }, function () { renderSessions(); updateSessBtn(); });
+        };
+        var db = document.createElement("button");
+        db.textContent = "删除"; db.onclick = function () {
+          sessPost("sp-session-delete", { id: s.id }, function () { renderSessions(); updateSessBtn(); });
+        };
+        row.appendChild(name); row.appendChild(meta); row.appendChild(rb); row.appendChild(nb); row.appendChild(db);
+        box.appendChild(row);
+      });
+    });
+  }
+  function saveSession() {
+    var def = new Date().toLocaleString("zh-CN", { hour12: false });
+    var nm = prompt("快照名称", def);
+    if (nm === null) return;
+    nm = (nm || "").trim() || def;
+    sessPost("sp-session-save", { name: nm }, function (r) {
+      if (!r || !r.ok) { toast("保存失败：当前没有可保存的网页"); return; }
+      toast("已保存会话：" + r.item.total + " 个标签");
+      renderSessions(); updateSessBtn();
+    });
+  }
+  function restoreSession(id) {
+    sessPost("sp-session-restore", id ? { id: id } : {}, function (r) {
+      if (!r || !r.ok) { toast(r && r.error ? r.error : "恢复失败"); return; }
+      toast("已恢复 " + (r.restored || 0) + " 个标签");
+    });
+  }
+  function bindSessionUI() {
+    var sv = document.getElementById("sessSave");
+    if (sv) sv.onclick = saveSession;
+    var qb = document.getElementById("sessBtn");
+    if (qb) qb.onclick = function () { restoreSession(""); };
+    var more = document.getElementById("sessMore");
+    var menu = document.getElementById("sessMenu");
+    if (more && menu) {
+      more.onclick = function (ev) {
+        ev.stopPropagation();
+        fillSessMenu();
+        menu.classList.toggle("on");
+      };
+      document.addEventListener("click", function (ev) {
+        if (!menu.classList.contains("on")) return;
+        if (menu.contains(ev.target) || more.contains(ev.target)) return;
+        menu.classList.remove("on");
+      });
+    }
+    renderSessions(); updateSessBtn();
   }
 
   function closePanel() {
@@ -1413,7 +1713,7 @@
       del.onclick = function () { S.shortcuts.splice(i, 1); save(); openPanel(); paintDock(); };
       row.appendChild(mv); row.appendChild(nm); row.appendChild(ur); row.appendChild(up); row.appendChild(del); l.appendChild(row);
     });
-    paintModeBtns(); paintThemeBtns(); applyDock(); applyFont(); applyHistoryLimit(); applyColors(); renderKeysSection(); annotateSettings();
+    paintModeBtns(); paintThemeBtns(); applyDock(); applyFont(); applyHistoryLimit(); applyColors(); renderKeysSection(); annotateSettings(); renderSessions();
   }
 
   var dockEl = document.getElementById("dock");
@@ -2364,6 +2664,11 @@
   };
 
   document.addEventListener("keydown", function (e) {
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && /^s$/i.test(e.key) && !e.altKey) {
+      e.preventDefault();
+      saveSession();
+      return;
+    }
     var _ae = document.activeElement;
     var _typing = _ae && (/^(INPUT|TEXTAREA|SELECT)$/.test(_ae.tagName) || _ae.isContentEditable);
     var _panelOn = document.getElementById("mask").classList.contains("on");
@@ -2469,6 +2774,15 @@
   }, 10000);
   window.addEventListener("resize", function () { setTimeout(refreshContrast, 300); });
   normalizeIcons();
+  setTimeout(bindSessionUI, 700);
+  setTimeout(function () { migrateNoteReadLater(); renderReadList(); }, 900);
+  setTimeout(bindNoteTabs, 950);
+  try {
+    chrome.storage.onChanged.addListener(function (ch) {
+      if (ch && ch.spReadLater) renderReadList();
+    });
+  } catch (e) {}
+
   setInterval(paintClock, 1000);
   setTimeout(ensurePlaying, 1500);
 

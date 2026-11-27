@@ -317,6 +317,27 @@ chrome.downloads.onCreated.addListener(function (item) {
 });
 
 chrome.commands.onCommand.addListener(function (cmd) {
+  if (cmd === "save-session") {
+    spSnapshot(function (snap) {
+      spGetSessions(function (list) {
+        var name = new Date().toLocaleString("zh-CN", { hour12: false });
+        list.unshift({ id: "s" + Date.now().toString(36), name: name, at: Date.now(), total: snap.total, windows: snap.windows });
+        list = list.slice(0, 10);
+        spSaveSessions(list, function () {
+          try {
+            chrome.notifications.create("sp-save-" + Date.now(), {
+              type: "basic",
+              iconUrl: chrome.runtime.getURL("icon128.png"),
+              title: "会话已保存",
+              message: snap.total + " 个标签已存入快照（新标签页左上角可恢复）"
+            });
+          } catch (e) {}
+        });
+      });
+    });
+    return;
+  }
+
   function openFallbackTab() {
     try { chrome.tabs.create({ url: chrome.runtime.getURL("index.html") + "#menu" }); } catch (e) {}
   }
@@ -424,5 +445,146 @@ try {
       sendResponse && sendResponse({ ok: true });
       return true;
     }
+  });
+} catch (e) {}
+
+/* ---------------- 会话快照 ---------------- */
+function spGetSessions(cb) {
+  try { chrome.storage.local.get("spSessions", function (r) { cb((r && r.spSessions) || []); }); }
+  catch (e) { cb([]); }
+}
+function spSaveSessions(list, cb) {
+  try { chrome.storage.local.set({ spSessions: list }, function () { cb && cb(); }); }
+  catch (e) { cb && cb(); }
+}
+function spSnapshot(cb) {
+  try {
+    chrome.windows.getAll({ populate: true }, function (wins) {
+      var windows = [];
+      (wins || []).forEach(function (w) {
+        var tabs = (w.tabs || []).filter(function (t) {
+          return t && t.url && /^(https?|file):/i.test(t.url) && !/^https?:\/\/(localhost|127\.0\.0\.1):\d+\/index\.html/i.test(t.url);
+        }).map(function (t) {
+          return { url: t.url, title: (t.title || "").slice(0, 120), pinned: !!t.pinned, active: !!t.active };
+        });
+        if (tabs.length) windows.push({ tabs: tabs });
+      });
+      var total = windows.reduce(function (n, w) { return n + w.tabs.length; }, 0);
+      cb({ windows: windows, total: total });
+    });
+  } catch (e) { cb({ windows: [], total: 0 }); }
+}
+try {
+  chrome.runtime.onMessage.addListener(function (m, sender, sendResponse) {
+    if (!m) return;
+    if (m.type === "sp-session-list") {
+      spGetSessions(function (list) { sendResponse({ ok: true, sessions: list }); });
+      return true;
+    }
+    if (m.type === "sp-session-save") {
+      spSnapshot(function (snap) {
+        spGetSessions(function (list) {
+          var name = m.name || new Date().toLocaleString("zh-CN", { hour12: false });
+          var item = { id: "s" + Date.now().toString(36), name: name, at: Date.now(), total: snap.total, windows: snap.windows };
+          list.unshift(item);
+          list = list.slice(0, 10);
+          spSaveSessions(list, function () { sendResponse({ ok: true, item: item, sessions: list }); });
+        });
+      });
+      return true;
+    }
+    if (m.type === "sp-session-delete") {
+      spGetSessions(function (list) {
+        list = list.filter(function (s) { return s.id !== m.id; });
+        spSaveSessions(list, function () { sendResponse({ ok: true, sessions: list }); });
+      });
+      return true;
+    }
+    if (m.type === "sp-session-rename") {
+      spGetSessions(function (list) {
+        list = list.map(function (s) { if (s.id === m.id && m.name) s.name = String(m.name).slice(0, 80); return s; });
+        spSaveSessions(list, function () { sendResponse({ ok: true, sessions: list }); });
+      });
+      return true;
+    }
+    if (m.type === "sp-session-restore") {
+      spGetSessions(function (list) {
+        var s = m.id ? list.filter(function (x) { return x.id === m.id; })[0] : list[0];
+        if (!s) { sendResponse({ ok: false, error: "没有可恢复的会话" }); return; }
+        var urls = [];
+        (s.windows || []).forEach(function (w) {
+          (w.tabs || []).forEach(function (t) { if (t && t.url) urls.push(t.url); });
+        });
+        if (!urls.length) { sendResponse({ ok: false, error: "快照是空的" }); return; }
+        chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+          var cur = tabs && tabs[0];
+          if (!cur) { sendResponse({ ok: false, error: "没有当前标签页" }); return; }
+          // 在当前标签页打开第一个网址，其余依次作为新标签（不新建窗口）
+          chrome.tabs.update(cur.id, { url: urls[0], active: true }, function () {
+            if (chrome.runtime.lastError) { sendResponse({ ok: false, error: chrome.runtime.lastError.message }); return; }
+            var left = urls.length - 1, failed = 0;
+            if (!left) { sendResponse({ ok: true, restored: 1, failed: 0 }); return; }
+            urls.slice(1).forEach(function (u) {
+              chrome.tabs.create({ url: u, active: false }, function () {
+                if (chrome.runtime.lastError) failed++;
+                if (--left === 0) sendResponse({ ok: failed === 0, restored: urls.length - failed, failed: failed });
+              });
+            });
+          });
+        });
+      });
+      return true;
+    }
+  });
+} catch (e) {}
+
+/* ---------------- 稍后阅读 ---------------- */
+function spGetRL(cb) {
+  try { chrome.storage.local.get("spReadLater", function (r) { cb((r && r.spReadLater) || []); }); }
+  catch (e) { cb([]); }
+}
+function spSaveRL(list, cb) {
+  try { chrome.storage.local.set({ spReadLater: list }, function () { cb && cb(); }); }
+  catch (e) { cb && cb(); }
+}
+function spAddRL(url, title, cb) {
+  if (!url || !/^https?:/i.test(url)) { cb && cb(false); return; }
+  spGetRL(function (list) {
+    list = list.filter(function (x) { return x.url !== url; });
+    list.unshift({ id: "r" + Date.now().toString(36), url: url, title: (title || url).slice(0, 140), at: Date.now() });
+    list = list.slice(0, 200);
+    spSaveRL(list, function () { cb && cb(true); });
+  });
+}
+try {
+  chrome.runtime.onMessage.addListener(function (m, sender, sendResponse) {
+    if (!m) return;
+    if (m.type === "sp-readlater-list") { spGetRL(function (l) { sendResponse({ ok: true, items: l }); }); return true; }
+    if (m.type === "sp-readlater-add") { spAddRL(m.url, m.title, function (ok) { sendResponse({ ok: ok }); }); return true; }
+    if (m.type === "sp-readlater-remove") {
+      spGetRL(function (l) { spSaveRL(l.filter(function (x) { return x.id !== m.id; }), function () { sendResponse({ ok: true }); }); });
+      return true;
+    }
+    if (m.type === "sp-readlater-clear") { spSaveRL([], function () { sendResponse({ ok: true }); }); return true; }
+  });
+} catch (e) {}
+
+try {
+  chrome.commands.onCommand.addListener(function (cmd) {
+    if (cmd !== "read-later") return;
+    chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+      var t = tabs && tabs[0];
+      if (!t) return;
+      spAddRL(t.url, t.title, function (ok) {
+        try {
+          chrome.notifications.create("sp-read-" + Date.now(), {
+            type: "basic",
+            iconUrl: chrome.runtime.getURL("icon128.png"),
+            title: ok ? "已记录到便签" : "无法加入稍后阅读",
+            message: ok ? (t.title || t.url).slice(0, 80) : "当前页面不是普通网页"
+          });
+        } catch (e) {}
+      });
+    });
   });
 } catch (e) {}

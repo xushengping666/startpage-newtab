@@ -661,6 +661,100 @@
   
   .clipblur { position:fixed; inset:0; z-index:81; opacity:0; pointer-events:none; background:rgba(8,10,16,.34); backdrop-filter:blur(16px) saturate(120%); -webkit-backdrop-filter:blur(16px) saturate(120%); transition:opacity .24s ease; }
   .clipblur.on { opacity:1; pointer-events:auto; }
+  
+
+  .sesswrap { position:fixed; top:18px; left:20px; z-index:90; display:none; align-items:stretch; border-radius:999px; background:rgba(18,21,28,.46); border:1px solid rgba(255,255,255,.22); box-shadow:0 6px 20px rgba(0,0,0,.22); backdrop-filter:blur(16px) saturate(150%); -webkit-backdrop-filter:blur(16px) saturate(150%); overflow:visible; }
+  .sesswrap.on { display:inline-flex; }
+  .sessbtn { border-radius:999px 0 0 999px; display:inline-flex; align-items:center; gap:5px; padding:5px 8px 5px 10px; border:0; background:transparent; color:#fff; font-size:12.5px; cursor:pointer; letter-spacing:.2px; }
+  .sessbtn svg { width:13px; height:13px; opacity:.85; flex:none; }
+  .sess-count { display:inline-flex; align-items:center; justify-content:center; min-width:16px; height:16px; padding:0 4px; border-radius:999px; background:rgba(255,255,255,.24); font-size:11px; font-weight:600; flex:none; }
+  .sesscaret { border-radius:0 999px 999px 0; display:inline-flex; align-items:center; justify-content:center; width:24px; padding:0; border:0; border-left:1px solid rgba(255,255,255,.18); background:transparent; color:rgba(255,255,255,.85); cursor:pointer; }
+  .sesscaret svg { width:12px; height:12px; }
+  .sessbtn:hover, .sesscaret:hover { background:rgba(255,255,255,.12); }
+  .sessbtn:active, .sesscaret:active { background:rgba(255,255,255,.18); }
+  .sessmenu { position:absolute; top:calc(100% + 8px); left:0; min-width:260px; max-height:320px; overflow-y:auto; padding:6px; border-radius:14px; background:rgba(18,21,28,.96); border:1px solid rgba(255,255,255,.14); box-shadow:0 18px 44px rgba(0,0,0,.45); backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px); opacity:0; visibility:hidden; pointer-events:none; transform:translateY(-8px) scale(.96); transform-origin:top left; transition:opacity .18s ease, transform .24s cubic-bezier(.18,.9,.28,1), visibility .24s; }
+  .sessmenu.on { opacity:1; visibility:visible; pointer-events:auto; transform:none; }
+  .sessmenu .si { padding:8px 10px; border-radius:9px; color:#e9ecf1; font-size:12.5px; cursor:pointer; display:flex; gap:8px; align-items:center; }
+  .sessmenu .si .si-name { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .sessmenu .si .si-x { flex:none; opacity:.5; padding:0 4px; font-size:14px; line-height:1; }
+  .sessmenu .si .si-x:hover { opacity:1; color:#ff9a9a; }
+  .sessmenu .si:hover { background:rgba(255,255,255,.10); }
+  .sessmenu .si small { color:rgba(255,255,255,.45); flex:none; font-size:11px; }
+  body.light .sesswrap { background:rgba(255,255,255,.72); border-color:rgba(0,0,0,.10); box-shadow:0 6px 22px rgba(0,0,0,.12); }
+  body.light .sessbtn { color:#1f2430; }
+  body.light .sess-count { background:rgba(0,0,0,.08); }
+  body.light .sesscaret { border-left-color:rgba(0,0,0,.10); color:rgba(0,0,0,.55); }
+  body.light .sessbtn:hover, body.light .sesscaret:hover { background:rgba(0,0,0,.05); }
+  body.light .sessmenu { background:rgba(252,252,253,.98); border-color:rgba(0,0,0,.10); box-shadow:0 18px 44px rgba(0,0,0,.18); }
+  body.light .sessmenu .si { color:#1f2430; }
+  body.light .sessmenu .si:hover { background:rgba(0,0,0,.05); }
+  body.light .sessmenu .si small { color:rgba(0,0,0,.45); }
+  .sess-item { display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid rgba(255,255,255,.08); font-size:12.5px; }
+  body.light .sess-item { border-bottom-color:rgba(0,0,0,.07); }
+  .sess-name { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .sess-meta { color:#8d96a5; font-size:11.5px; flex:none; }
+  
+  .note-links { max-height: 38%; overflow-y: auto; padding: 2px 14px 10px; display: flex; flex-direction: column; gap: 4px; }
+  .note-links:empty { display: none; }
+  .note-link { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #e9ecf1; text-decoration: none; padding: 3px 6px; border-radius: 7px; overflow: hidden; }
+  .note-link:hover { background: rgba(255,255,255,.10); }
+  .note-link span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .note-link .x { flex: none; opacity: .6; padding: 0 3px; }
+  .note-link .x:hover { opacity: 1; color: #ff9a9a; }
+  body.light .note-link { color: #252a33; }
+  
+  .note-links-hd { font-size: 11px; color: #9aa3b0; padding: 2px 4px 4px; }
+  body.light .note-links-hd { color: #7b8492; }
+  
+  .note-tabs { margin-left: 8px; display: inline-flex; gap: 4px; }
+  .note-tab { padding: 2px 8px; border-radius: 999px; border: 0; background: transparent; color: rgba(255,255,255,.55); font-size: 11.5px; cursor: pointer; }
+  .note-tab.on { background: rgba(255,255,255,.16); color: #fff; }
+  .note-tab b { font-weight: 600; opacity: .8; }
+  body.light .note-tab { color: rgba(0,0,0,.45); }
+  body.light .note-tab.on { background: rgba(0,0,0,.08); color: #1f2430; }
+  .readlist { display: none; flex: 1; min-height: 0; overflow-y: auto; padding: 2px 12px 10px; }
+  #notes.read-mode textarea { display: none; }
+  #notes.read-mode .readlist { display: block; }
+  .rl-item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 8px; cursor: pointer; font-size: 12px; color: #e9ecf1; }
+  .rl-item:hover { background: rgba(255,255,255,.10); }
+  body.light .rl-item { color: #252a33; }
+  body.light .rl-item:hover { background: rgba(0,0,0,.06); }
+  .rl-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rl-x { flex: none; opacity: .55; padding: 0 4px; }
+  .rl-x:hover { opacity: 1; color: #ff9a9a; }
+  .rl-empty { font-size: 12px; color: #8d96a5; padding: 14px 8px; text-align: center; }
+  
+    /* 亮壁纸（非浅色主题）也走浅色控件 */
+  body.bg-light:not(.light) .sesswrap, body.bg-light:not(.light) .gear { background:rgba(255,255,255,var(--dock-light)); border-color:rgba(0,0,0,.10); color:#1f2430; }
+  body.bg-light:not(.light) .sessbtn { color:#1f2430; }
+  body.bg-light:not(.light) .sess-count { background:rgba(0,0,0,.08); }
+  body.bg-light:not(.light) .sesscaret { border-left-color:rgba(0,0,0,.10); color:rgba(0,0,0,.55); }
+  body.bg-light:not(.light) .sessmenu { background:rgba(252,252,253,.98); border-color:rgba(0,0,0,.10); }
+  body.bg-light:not(.light) .sessmenu .si { color:#1f2430; }
+  body.bg-light:not(.light) .sessmenu .si small { color:rgba(0,0,0,.45); }
+  
+  /* 顶栏控件统一使用 Dock 材质，并与设置齿轮对齐 */
+  .sesswrap { top:20px; left:22px; height:32px; background:rgba(255,255,255,var(--dock-dark)); border:1px solid transparent; box-shadow:0 12px 32px rgba(0,0,0,.22); }
+  .sessbtn { height:100%; padding:0 12px 0 12px; gap:6px; }
+  .sesscaret { height:100%; width:26px; border-left:1px solid rgba(255,255,255,.16); }
+  .gear { top:20px; right:22px; width:32px; height:32px; font-size:16px; background:rgba(255,255,255,var(--dock-dark)); border:1px solid transparent; backdrop-filter:blur(15px) saturate(145%); -webkit-backdrop-filter:blur(15px) saturate(145%); box-shadow:0 12px 32px rgba(0,0,0,.22); z-index:90; }
+  .gear:hover { background:rgba(255,255,255,calc(var(--dock-dark) + .08)); }
+  body.light .sesswrap, body.light .gear { background:rgba(255,255,255,var(--dock-light)); }
+  body.light .gear:hover { background:rgba(255,255,255,calc(var(--dock-light) + .10)); }
+  body.light .sesscaret { border-left-color:rgba(0,0,0,.10); }
+  
+  /* 覆盖浅色主题全局 button 底色，让胶囊保持毛玻璃 */
+  body.light .sessbtn, body.light .sesscaret { background:transparent !important; border:0 !important; color:#1f2430 !important; }
+  body.light .sesscaret { border-left:1px solid rgba(0,0,0,.12) !important; }
+  body.light .sessbtn:hover, body.light .sesscaret:hover { background:rgba(0,0,0,.05) !important; }
+  body.light .sess-count { background:rgba(0,0,0,.08) !important; }
+  
+  .sessmenu.on .si { animation: siIn .24s cubic-bezier(.18,.9,.28,1) both; }
+  .sessmenu.on .si:nth-child(2) { animation-delay: .03s; }
+  .sessmenu.on .si:nth-child(3) { animation-delay: .06s; }
+  .sessmenu.on .si:nth-child(4) { animation-delay: .09s; }
+  .sessmenu.on .si:nth-child(n+5) { animation-delay: .12s; }
+  @keyframes siIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:none; } }
   </style>
 </head>
 <body>
@@ -691,9 +785,11 @@
     <div class="note-grip" id="noteGrip" title="拖动便签"></div>
     <div class="note-bar">
       <span class="note-title">便签</span>
+      <span class="note-tabs"><button class="note-tab on" id="ntNotes" type="button">笔记</button><button class="note-tab" id="ntRead" type="button">稍后阅读 <b id="rlCount">0</b></button></span>
       <button class="pin" id="notePin" title="固定位置">📌</button>
     </div>
     <textarea id="noteBox" placeholder="随手记点什么…" spellcheck="false"></textarea>
+    <div class="readlist" id="readList"></div>
   </div>
   <div class="appmenu" id="appmenu">
     <div class="am-panel">
@@ -713,6 +809,17 @@
   <div class="ctxmenu" id="ctxmenu"></div>
   <div class="moremenu" id="moremenu"></div>
   <div class="dockwrap"><div class="dock" id="dock"></div></div>
+  <div class="sesswrap" id="sessWrap">
+    <button class="sessbtn" id="sessBtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1"/><path d="M3.2 4.5v4h4"/><path d="M12 8.2v4.2l2.8 1.7"/></svg>
+      <span id="sessLabel">会话</span>
+      <b class="sess-count" id="sessCount">0</b>
+    </button>
+    <button class="sesscaret" id="sessMore">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 9.5 12 15l5.5-5.5"/></svg>
+    </button>
+    <div class="sessmenu" id="sessMenu"></div>
+  </div>
   <div class="gear" id="gear" title="设置">&#9881;</div>
   <div class="pill" id="pill"></div>
 </div>
@@ -728,11 +835,11 @@
         <a data-t="s-look"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.4"/><path d="M12 3.6a8.4 8.4 0 010 16.8z" fill="currentColor" stroke="none"/></svg></span>外观</a>
         <a data-t="s-widget"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.8" y="3.8" width="7" height="7" rx="1.6"/><rect x="13.2" y="3.8" width="7" height="7" rx="1.6"/><rect x="3.8" y="13.2" width="7" height="7" rx="1.6"/><rect x="13.2" y="13.2" width="7" height="7" rx="1.6"/></svg></span>组件</a>
         <a data-t="s-dock"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="13.2" width="18" height="6.6" rx="3.3"/><circle cx="7.6" cy="16.5" r="1"/><circle cx="12" cy="16.5" r="1"/><circle cx="16.4" cy="16.5" r="1"/><path d="M7 9.5h10"/></svg></span>Dock 与菜单</a>
-        <a data-t="s-input"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8.2 4.5v15M8.2 4.5L5.2 7.5M8.2 4.5l3 3"/><path d="M15.8 19.5v-15M15.8 19.5l-3-3M15.8 19.5l3-3"/></svg></span>交互</a> <a data-t="s-keys"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.6" y="6" width="18.8" height="12" rx="2.4"/><path d="M6 10h1M9.5 10h1M13 10h1M16.5 10h1M6 13.4h1M9.5 13.4h1M13 13.4h1M16.5 13.4h1M8 16.6h8"/></svg></span>快捷键</a>
+        <a data-t="s-input"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8.2 4.5v15M8.2 4.5L5.2 7.5M8.2 4.5l3 3"/><path d="M15.8 19.5v-15M15.8 19.5l-3-3M15.8 19.5l3-3"/></svg></span>交互</a> <a data-t="s-keys"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.6" y="6" width="18.8" height="12" rx="2.4"/><path d="M6 10h1M9.5 10h1M13 10h1M16.5 10h1M6 13.4h1M9.5 13.4h1M13 13.4h1M16.5 13.4h1M8 16.6h8"/></svg></span>快捷键</a> <a data-t="s-session"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.6" y="4.5" width="16.8" height="15" rx="2.2"/><path d="M7.5 8.5h9M7.5 12h6M7.5 15.5h4"/><path d="M9 2.8h6"/></svg></span>会话快照</a>
         <a data-t="s-dl"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v10.5"/><path d="M7.8 10.6L12 14.8l4.2-4.2"/><path d="M4.5 19.5h15"/></svg></span>下载接管</a>
         <a data-t="s-data"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.6 8.2a2 2 0 012-2h3.8l2 2.4h7a2 2 0 012 2v6.6a2 2 0 01-2 2H5.6a2 2 0 01-2-2z"/><path d="M3.6 11.4h16.8"/></svg></span>快捷方式与数据</a>
       </nav>
-      <div class="pnl-foot">本机存储 · build 326</div>
+      <div class="pnl-foot">本机存储 · build 343</div>
     </aside>
     <main class="pnl-main" id="pnlMain">
       <button class="pnl-x" id="pnlClose" title="关闭">&#10005;</button>
@@ -814,6 +921,10 @@
 
     <div class="grp" id="s-keys">快捷键</div>
     <div id="ex-keys"></div>
+
+    <div class="grp" id="s-session">会话快照</div>
+    <div class="row"><button id="sessSave">保存当前会话</button><span class="tip" style="margin:0 0 0 12px;font-size:12px">保存在本机，最多 10 个快照</span></div>
+    <div class="list" id="sessList"></div>
 
     <div class="grp" id="s-dl">下载接管</div>
     <div id="ex-dl"></div>
