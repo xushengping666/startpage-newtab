@@ -1129,9 +1129,14 @@
     };
   }
 
+  var lastMenuOpenAt = 0;
   function openAppMenu() {
     var box = $("appmenu");
     if (!box) return;
+    var now = Date.now();
+    // 已经打开时，短时间内重复触发直接忽略，避免重新渲染导致闪动
+    if (box.classList.contains("on") && now - lastMenuOpenAt < 900) return;
+    lastMenuOpenAt = now;
     var m = $("moremenu");
     if (m) m.classList.remove("on");
     bindSyncBtn();
@@ -1140,7 +1145,9 @@
     autoBookmarksIntoMenu(function (n) { if (n) renderAppMenu(($("amSearch") && $("amSearch").value) || ""); });
     var inp = $("amSearch");
     if (inp) inp.value = "";
-    box.classList.add("on");
+    box.classList.remove("closing");
+    box.classList.add("on", "anim");
+    setTimeout(function () { box.classList.remove("anim"); }, 900);
     setTimeout(function () { if (inp) inp.focus(); }, 60);
   }
   window.__openAppMenu = openAppMenu;
