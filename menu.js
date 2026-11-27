@@ -132,6 +132,8 @@
   input.addEventListener("input", render);
   input.addEventListener("keydown", function (e) { if (e.key === "Escape") hide(); });
   document.addEventListener("keydown", function (e) { if (e.key === "Escape") hide(); }, true);
-  chrome.runtime.onMessage.addListener(function (m) { if (m && m.type === "sp-open-menu") show(); });
+  chrome.runtime.onMessage.addListener(function (m, sender, sendResponse) {
+  if (m && m.type === "sp-open-menu") { try { show(); } catch (e) {} try { sendResponse({ ok: true }); } catch (e) {} return true; }
+});
   show();
 })();

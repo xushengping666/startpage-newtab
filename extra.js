@@ -1130,13 +1130,16 @@
   }
 
   var lastMenuOpenAt = 0;
+  var menuClosedAt = 0;
   function openAppMenu() {
     var box = $("appmenu");
     if (!box) return;
     var now = Date.now();
+    if (!box.classList.contains("on") && now - menuClosedAt < 900) return;
     // 已经打开时，短时间内重复触发直接忽略，避免重新渲染导致闪动
     if (box.classList.contains("on") && now - lastMenuOpenAt < 900) return;
     lastMenuOpenAt = now;
+    menuClosedAt = 0;
     var m = $("moremenu");
     if (m) m.classList.remove("on");
     bindSyncBtn();
@@ -1153,8 +1156,12 @@
   window.__openAppMenu = openAppMenu;
   try {
     if (window.chrome && chrome.runtime && chrome.runtime.onMessage) {
-      chrome.runtime.onMessage.addListener(function (m) {
-        if (m && m.type === "sp-open-menu") { try { openAppMenu(); } catch (e) {} }
+      chrome.runtime.onMessage.addListener(function (m, sender, sendResponse) {
+        if (m && m.type === "sp-open-menu") {
+          try { openAppMenu(); } catch (e) {}
+          try { sendResponse({ ok: true }); } catch (e) {}
+          return true;
+        }
       });
     }
   } catch (e) {}
@@ -1169,7 +1176,7 @@
     var box = $("appmenu");
     if (!box || !box.classList.contains("on") || box.classList.contains("closing")) return;
     box.classList.add("closing");
-    setTimeout(function () { box.classList.remove("on"); box.classList.remove("closing"); }, 380);
+    setTimeout(function () { box.classList.remove("on"); box.classList.remove("closing"); menuClosedAt = Date.now(); }, 380);
   }
   function bindAppMenu() {
     var box = $("appmenu");

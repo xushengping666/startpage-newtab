@@ -353,14 +353,14 @@ chrome.commands.onCommand.addListener(function (cmd) {
       function retryOwn(times) {
         chrome.tabs.sendMessage(t.id, { type: "sp-open-menu" }, function () {
           if (!chrome.runtime.lastError) return;
-          if (times > 0) setTimeout(function () { retryOwn(times - 1); }, 700);
+          if (times > 0) setTimeout(function () { retryOwn(times - 1); }, 600);
         });
       }
       // 1) 页面里已有菜单 → 直接显示
       chrome.tabs.sendMessage(t.id, { type: "sp-open-menu" }, function () {
         if (!chrome.runtime.lastError) return;
         // 2) 新标签页 / 自己页面：等加载完再试，绝不跳转
-        if (isOwnPage(t.url) || isOwnPage(t.pendingUrl)) { retryOwn(3); return; }
+        if (isOwnPage(t.url) || isOwnPage(t.pendingUrl)) { retryOwn(1); return; }
         // 3) 普通网页：注入 menu.js，它注入后会自己弹出，不需要再发消息
         chrome.scripting.executeScript({ target: { tabId: t.id }, files: ["menu.js"] }, function () {
           // 注入失败（edge:// 等）就什么也不做，不新开标签
