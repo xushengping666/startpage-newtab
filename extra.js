@@ -836,6 +836,12 @@
       b.__lim = lim;
       b.__over = over;
       b.onclick = function (ev) { ev.stopPropagation(); openAppMenu(); };
+      b.addEventListener("pointerdown", function (ev) {
+        if (ev.button !== 0) return;
+        ev.preventDefault();
+        ev.stopPropagation();
+        openAppMenu();
+      });
       dock.insertBefore(b, dock.firstChild);
     }
     updateDockDensity();
@@ -1131,13 +1137,14 @@
 
   var lastMenuOpenAt = 0;
   var menuClosedAt = 0;
-  function openAppMenu() {
+  function openAppMenu(fromMessage) {
     var box = $("appmenu");
     if (!box) return;
     var now = Date.now();
-    if (!box.classList.contains("on") && now - menuClosedAt < 900) return;
-    // 已经打开时，短时间内重复触发直接忽略，避免重新渲染导致闪动
-    if (box.classList.contains("on") && now - lastMenuOpenAt < 900) return;
+    // 已经打开时，短时间内的重复触发（pointerdown + click）直接忽略
+    if (box.classList.contains("on") && now - lastMenuOpenAt < 600) return;
+    // 只拦截「后台消息」的迟到重试；用户主动点 ☰ 不受影响
+    if (fromMessage && !box.classList.contains("on") && now - menuClosedAt < 900) return;
     lastMenuOpenAt = now;
     menuClosedAt = 0;
     var m = $("moremenu");
@@ -1158,7 +1165,7 @@
     if (window.chrome && chrome.runtime && chrome.runtime.onMessage) {
       chrome.runtime.onMessage.addListener(function (m, sender, sendResponse) {
         if (m && m.type === "sp-open-menu") {
-          try { openAppMenu(); } catch (e) {}
+          try { openAppMenu(true); } catch (e) {}
           try { sendResponse({ ok: true }); } catch (e) {}
           return true;
         }
