@@ -777,7 +777,7 @@
         a.classList.remove("press");
         void a.offsetWidth;
         a.classList.add("press");
-        setTimeout(function () { location.href = href; }, 1250);
+        setTimeout(function () { location.href = href; }, 320);
       });
       d.appendChild(a);
     });
